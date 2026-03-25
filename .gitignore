@@ -1,0 +1,6 @@
+# Gitignore file
+model.pth
+.DS_Store
+__pycache__/
+*.pyc
+data/

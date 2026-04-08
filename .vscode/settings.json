@@ -1,4 +1,9 @@
 {
     "git.ignoreLimitWarning": true,
-    "python.analysis.extraPaths": ["./"]
+    "python.analysis.extraPaths": [
+        "./dataset",
+        "./models",
+        "./utils",
+        "./training"
+    ]
 }

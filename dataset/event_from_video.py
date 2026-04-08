@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-def video_to_events(video_path, threshold=15, max_frames=50, max_events=50000):
+def video_to_events(video_path, threshold=10, max_frames=30, max_events=20000):
     cap = cv2.VideoCapture(video_path)
 
     ret, prev = cap.read()

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-def events_to_voxel(events, num_bins=5, height=128, width=128):
+def events_to_voxel(events, num_bins=5, height=64, width=64):
 
     voxel = np.zeros((num_bins, height, width))
 

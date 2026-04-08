@@ -7,7 +7,7 @@ from models.attention_module import TemporalAttention
 
 class DriverMonitoringModel(nn.Module):
 
-    def __init__(self, num_classes=5):
+    def __init__(self, num_classes=2):
 
         super().__init__()
 
@@ -15,7 +15,7 @@ class DriverMonitoringModel(nn.Module):
 
         # backbone output flattened size
         self.lstm = nn.LSTM(
-            input_size=32768,
+            input_size=8192,
             hidden_size=256,
             batch_first=True
         )
@@ -24,7 +24,7 @@ class DriverMonitoringModel(nn.Module):
 
         self.fc = nn.Linear(256, num_classes)
 
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(0.4)
 
     def forward(self, x):
 

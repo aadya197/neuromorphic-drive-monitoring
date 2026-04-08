@@ -24,16 +24,16 @@ class VideoDataset(Dataset):
 
         name = path.lower()
 
-        if "face" in name:
-            return 0
-        elif "hands" in name:
+        # if "face" in name:
+        #     return 0
+        # elif "hands" in name:
+        #     return 1
+        # elif "body" in name:
+        #     return 2
+        if "drowsiness" in name:
             return 1
-        elif "body" in name:
-            return 2
-        elif "drowsiness" in name:
-            return 3
         else:
-            return 4
+            return 0
 
     def __getitem__(self, idx):
 

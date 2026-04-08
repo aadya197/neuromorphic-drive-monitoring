@@ -10,6 +10,9 @@ from models.model_full import DriverMonitoringModel
 
 from dataset.video_dataset import VideoDataset
 import os
+from models.model_full import *
+from dataset.event_dataset import EventDataset
+from utils.visualization import *
 
 data_path = os.path.expanduser("~/Desktop/dmd")
 
@@ -21,12 +24,12 @@ model = DriverMonitoringModel()
 
 print(model)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-loss_fn = torch.nn.CrossEntropyLoss()
+loss_fn = torch.nn.CrossEntropyLoss(weight=torch.tensor([0.3, 0.7]))
 
 
-for epoch in range(10):
+for epoch in range(20):
 
     correct = 0
     total = 0
@@ -48,9 +51,8 @@ for epoch in range(10):
         total += y.size(0)
         correct += int(torch.sum(predicted == y).item())
 
-    acc = 100 * correct / total
-
-    print("Epoch:", epoch, "Loss:", loss.item(), "Accuracy:", acc)
+    accuracy = 100 * correct / total
+    print(f"Epoch {epoch} Loss: {loss.item():.4f} Accuracy: {accuracy:.2f}%")
 
     if epoch == 9:
         torch.save(model.state_dict(), "model.pth")

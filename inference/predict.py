@@ -1,17 +1,19 @@
 import torch
 from models.model_full import DriverMonitoringModel
+from dataset.video_dataset import VideoDataset
 
 model = DriverMonitoringModel()
 model.load_state_dict(torch.load("model.pth"))
-
 model.eval()
 
-def predict(x):
+dataset = VideoDataset("/Users/aadya/Desktop/dmd")
 
-    with torch.no_grad():
+x, y = dataset[0]
+x = x.unsqueeze(0)
 
-        output = model(x)
+with torch.no_grad():
+    pred = model(x)
+    pred_class = torch.argmax(pred, dim=1).item()
 
-        pred = torch.argmax(output, dim=1)
-
-        return pred
+print("Predicted:", "DROWSY 😴" if pred_class == 1 else "NORMAL 🙂")
+print("Actual:", y)

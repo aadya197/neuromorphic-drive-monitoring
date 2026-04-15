@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroGuard — Live Detection</title>
+  <meta name="description" content="Real-time neuromorphic driver drowsiness detection using your webcam." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="live.css" />
+</head>
+<body class="live-body">
+
+  <!-- Navbar -->
+  <nav class="navbar scrolled">
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">Neuro<span class="accent">Guard</span></span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html#overview">Overview</a></li>
+        <li><a href="index.html#architecture">Architecture</a></li>
+        <li><a href="live.html" class="active">Live Demo</a></li>
+        <li><a href="index.html#dataset">Dataset</a></li>
+        <li><a href="index.html#results">Results</a></li>
+      </ul>
+      <div class="nav-actions">
+        <div class="api-status-badge" id="apiStatus">
+          <span class="api-dot offline"></span>
+          <span class="api-text">API Offline</span>
+        </div>
+        <a href="index.html" class="btn-ghost">← Back to Home</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ══ MAIN LIVE DETECTION APP ══ -->
+  <main class="live-main">
+    <div class="live-container">
+
+      <!-- Header -->
+      <div class="live-header">
+        <div class="lh-title">
+          <span class="section-tag">Live Detection</span>
+          <h1>Real-Time Driver Monitoring</h1>
+          <p>Your webcam feed is processed frame-by-frame through the neuromorphic pipeline to detect drowsiness and distraction in real-time.</p>
+        </div>
+        <div class="lh-controls">
+          <button class="btn-primary" id="startBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+            Start Detection
+          </button>
+          <button class="btn-outline" id="stopBtn" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+            Stop
+          </button>
+          <button class="btn-ghost" id="resetBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Alert banner -->
+      <div class="drowsy-alert hidden" id="drowsyAlert">
+        <div class="da-icon">🚨</div>
+        <div class="da-text">
+          <strong>DROWSINESS DETECTED!</strong>
+          <span>Please pull over safely and take a break.</span>
+        </div>
+        <button class="da-close" onclick="dismissAlert()">✕</button>
+      </div>
+
+      <!-- Main grid -->
+      <div class="live-grid">
+
+        <!-- ── LEFT: Camera Feed ── -->
+        <div class="cam-panel">
+          <div class="panel-header">
+            <span class="ph-title">
+              <span class="ph-dot" id="camDot"></span>
+              Camera Feed
+            </span>
+            <span class="ph-info" id="fpsDisplay">0 FPS</span>
+          </div>
+
+          <div class="cam-viewport" id="camViewport">
+            <!-- Idle state -->
+            <div class="cam-idle" id="camIdle">
+              <div class="ci-icon">📷</div>
+              <div class="ci-title">Camera Not Active</div>
+              <div class="ci-sub">Click <strong>Start Detection</strong> to enable your webcam</div>
+            </div>
+
+            <!-- Live video -->
+            <video id="webcamVideo" autoplay playsinline muted></video>
+            <canvas id="overlayCanvas"></canvas>
+
+            <!-- HUD overlay -->
+            <div class="hud-overlay" id="hudOverlay" style="display:none">
+              <div class="hud-corners">
+                <div class="hc tl"></div><div class="hc tr"></div>
+                <div class="hc bl"></div><div class="hc br"></div>
+              </div>
+              <div class="hud-top-bar">
+                <div class="htb-left">
+                  <span class="htb-label">NEUROGUARD</span>
+                  <span class="htb-time" id="sessionTime">00:00</span>
+                </div>
+                <div class="htb-right">
+                  <span class="htb-mode" id="modeLabel">HEURISTIC</span>
+                </div>
+              </div>
+              <div class="hud-state-badge" id="hudStateBadge">
+                <span class="hsb-dot alert" id="hsbDot"></span>
+                <span id="hudStateText">INITIALIZING...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Event stream visualizer -->
+          <div class="event-viz">
+            <div class="ev-header">
+              <span>⚡ Simulated Event Stream</span>
+              <span class="ev-rate" id="evRate">0 ev/s</span>
+            </div>
+            <canvas id="eventStreamCanvas" height="60"></canvas>
+          </div>
+        </div>
+
+        <!-- ── RIGHT: Analysis ── -->
+        <div class="analysis-col">
+
+          <!-- Detection result card -->
+          <div class="result-card-live" id="resultCard">
+            <div class="rcl-state" id="rclState">
+              <div class="rcl-emoji" id="rclEmoji">⏳</div>
+              <div class="rcl-info">
+                <div class="rcl-label" id="rclLabel">Waiting for camera...</div>
+                <div class="rcl-conf">Confidence: <span id="rclConf">—</span></div>
+              </div>
+            </div>
+            <div class="rcl-bar-wrap">
+              <div class="rcl-bar" id="rclBar" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- Metrics -->
+          <div class="metrics-card">
+            <div class="mc-title">Live Metrics</div>
+            <div class="metric-item">
+              <div class="mi-icon">👁️</div>
+              <div class="mi-body">
+                <div class="mi-label">PERCLOS (Eye Closure %)</div>
+                <div class="mi-bar-wrap"><div class="mi-bar" id="perclosBar"></div></div>
+                <div class="mi-val" id="perclosVal">—</div>
+              </div>
+            </div>
+            <div class="metric-item">
+              <div class="mi-icon">💫</div>
+              <div class="mi-body">
+                <div class="mi-label">Blink Rate (per min)</div>
+                <div class="mi-bar-wrap"><div class="mi-bar safe" id="blinkBar"></div></div>
+                <div class="mi-val" id="blinkVal">—</div>
+              </div>
+            </div>
+            <div class="metric-item">
+              <div class="mi-icon">📐</div>
+              <div class="mi-body">
+                <div class="mi-label">Head Droop (degrees)</div>
+                <div class="mi-bar-wrap"><div class="mi-bar" id="droopBar"></div></div>
+                <div class="mi-val" id="droopVal">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SNN Spike activity -->
+          <div class="spike-card">
+            <div class="mc-title">SNN Spike Activity</div>
+            <canvas id="spikeCanvas" height="80"></canvas>
+          </div>
+
+          <!-- Session log -->
+          <div class="log-card">
+            <div class="mc-title">Session Event Log</div>
+            <div class="log-body" id="logBody">
+              <div class="log-entry info">System ready. Click Start Detection to begin.</div>
+            </div>
+          </div>
+
+          <!-- Stats row -->
+          <div class="stats-row">
+            <div class="sr-item">
+              <div class="sr-val" id="totalFrames">0</div>
+              <div class="sr-label">Frames Processed</div>
+            </div>
+            <div class="sr-item">
+              <div class="sr-val" id="alertCount">0</div>
+              <div class="sr-label">Alerts Triggered</div>
+            </div>
+            <div class="sr-item">
+              <div class="sr-val" id="avgConf">—</div>
+              <div class="sr-label">Avg Confidence</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Setup instructions -->
+      <div class="setup-card" id="setupCard">
+        <div class="sc-icon">ℹ️</div>
+        <div class="sc-body">
+          <strong>Backend API Required</strong>
+          <p>For live detection, start the Python backend in a terminal:</p>
+          <div class="sc-code">
+            <code>cd neuromorphic-drive-monitoring</code><br/>
+            <code>pip install flask flask-cors opencv-python</code><br/>
+            <code>python -m backend.app</code>
+          </div>
+          <p class="sc-note">Then refresh this page. The system will automatically connect to <code>localhost:5050</code>.<br/>
+          <strong>No backend?</strong> The page will show a simulated demo so you can still see the UI.</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="live.js"></script>
+</body>
+</html>

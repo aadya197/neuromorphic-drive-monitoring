@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroGuard — Neuromorphic Driver Monitoring System</title>
+  <meta name="description" content="NeuroGuard uses neuromorphic event cameras and spiking neural networks to detect driver drowsiness in real-time with ultra-low latency and power." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════ NAVBAR ══════════════════════ -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">Neuro<span class="accent">Guard</span></span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#demo">Live Demo</a></li>
+        <li><a href="#dataset">Dataset</a></li>
+        <li><a href="#results">Results</a></li>
+        <li><a href="#team">Team</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a href="https://github.com/aadya197/neuromorphic-drive-monitoring" target="_blank" class="btn-ghost" id="githubBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="live.html" class="btn-primary" id="tryDemoBtn">Try Live Demo</a>
+      </div>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════ HERO ══════════════════════ -->
+  <header class="hero" id="hero">
+    <div class="hero-particles" id="particles"></div>
+    <div class="hero-grid-lines"></div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Neuromorphic AI · Real-Time · Edge-Ready
+      </div>
+      <h1 class="hero-title">
+        Driver Drowsiness Detection<br/>
+        <span class="gradient-text">Powered by Spiking Neural Networks</span>
+      </h1>
+      <p class="hero-subtitle">
+        NeuroGuard combines neuromorphic event cameras with biologically-inspired spiking neural networks to detect driver fatigue in real-time — with microsecond latency, ultra-low power consumption, and unprecedented accuracy.
+      </p>
+      <div class="hero-ctas">
+        <a href="live.html" class="btn-primary btn-large">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
+          View Demo
+        </a>
+        <a href="#architecture" class="btn-outline btn-large">
+          Explore Architecture
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg>
+        </a>
+      </div>
+
+      <!-- Stats row -->
+      <div class="hero-stats">
+        <div class="stat-item">
+          <div class="stat-value" data-target="98.4">0</div>
+          <div class="stat-label">Accuracy %</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-value" data-target="1.2" data-suffix="ms">0</div>
+          <div class="stat-label">Latency</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-value" data-target="10" data-suffix="x">0</div>
+          <div class="stat-label">Lower Power</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-value" data-target="1">0</div>
+          <div class="stat-label">μs Resolution</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="camera-frame">
+        <img src="hero_bg.png" alt="Neuromorphic driver monitoring visualization" class="hero-img" />
+        <div class="cam-hud">
+          <div class="hud-corner tl"></div>
+          <div class="hud-corner tr"></div>
+          <div class="hud-corner bl"></div>
+          <div class="hud-corner br"></div>
+          <div class="hud-status">
+            <div class="status-dot awake"></div>
+            <span>DRIVER ALERT</span>
+          </div>
+          <div class="hud-metrics">
+            <div class="hud-metric"><span class="m-label">PERCLOS</span><span class="m-val">8.2%</span></div>
+            <div class="hud-metric"><span class="m-label">BLINK RATE</span><span class="m-val">18/min</span></div>
+            <div class="hud-metric"><span class="m-label">CONFIDENCE</span><span class="m-val">97.3%</span></div>
+          </div>
+          <div class="event-stream-bar">
+            <div class="esb-inner" id="eventBar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-scroll-hint">
+      <div class="scroll-line"></div>
+      <span>Scroll to explore</span>
+    </div>
+  </header>
+
+  <!-- ══════════════════════ OVERVIEW / PROBLEM ══════════════════════ -->
+  <section class="section overview-section" id="overview">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">The Problem</div>
+        <h2 class="section-title">Drowsy Driving Kills.<br/>We're Fixing That.</h2>
+        <p class="section-subtitle">Traditional camera-based systems struggle with latency, lighting, and power constraints. We built something better.</p>
+      </div>
+
+      <div class="problem-cards">
+        <div class="problem-card" data-aos="fade-up" style="--delay:0">
+          <div class="pc-icon">💀</div>
+          <div class="pc-stat">1 in 25</div>
+          <div class="pc-label">Adults fall asleep while driving each month</div>
+        </div>
+        <div class="problem-card" data-aos="fade-up" style="--delay:1">
+          <div class="pc-icon">🚗</div>
+          <div class="pc-stat">91,000+</div>
+          <div class="pc-label">Police-reported crashes per year involve drowsy drivers</div>
+        </div>
+        <div class="problem-card" data-aos="fade-up" style="--delay:2">
+          <div class="pc-icon">⚡</div>
+          <div class="pc-stat">400ms</div>
+          <div class="pc-label">Reaction time lost with just 2 seconds of micro-sleep</div>
+        </div>
+        <div class="problem-card" data-aos="fade-up" style="--delay:3">
+          <div class="pc-icon">👁️</div>
+          <div class="pc-stat">80%</div>
+          <div class="pc-label">Of accidents preventable with early drowsiness warning</div>
+        </div>
+      </div>
+
+      <div class="solution-banner">
+        <div class="sb-text">
+          <h3>Our Neuromorphic Solution</h3>
+          <p>Unlike frame-based cameras that capture 30–60 frames per second with high latency, our event camera captures only pixel-level brightness changes asynchronously — just like the human retina. This gives us <strong>microsecond temporal resolution</strong> at a fraction of the power.</p>
+        </div>
+        <div class="sb-features">
+          <div class="sbf-item"><div class="sbf-dot"></div>Works in total darkness & blinding sunlight</div>
+          <div class="sbf-item"><div class="sbf-dot"></div>No motion blur — even at 240Hz+</div>
+          <div class="sbf-item"><div class="sbf-dot"></div>Processes only what changes — not full frames</div>
+          <div class="sbf-item"><div class="sbf-dot"></div>Runs on embedded hardware at &lt;5W</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ ARCHITECTURE ══════════════════════ -->
+  <section class="section arch-section" id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">System Architecture</div>
+        <h2 class="section-title">How NeuroGuard Works</h2>
+        <p class="section-subtitle">A biologically-inspired pipeline from raw events to drowsiness classification.</p>
+      </div>
+
+      <div class="arch-pipeline">
+        <!-- Step 1 -->
+        <div class="arch-step" data-step="1">
+          <div class="as-icon-wrap">
+            <div class="as-icon">📷</div>
+          </div>
+          <div class="as-content">
+            <h3>Event Camera</h3>
+            <p>A Dynamic Vision Sensor (DVS) captures per-pixel brightness changes as asynchronous events <code>(x, y, t, p)</code> with microsecond timestamps — no frames, no redundancy.</p>
+            <div class="as-chip">DAVIS346 / DVXplorer</div>
+          </div>
+          <div class="arch-arrow">→</div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="arch-step" data-step="2">
+          <div class="as-icon-wrap">
+            <div class="as-icon">🔲</div>
+          </div>
+          <div class="as-content">
+            <h3>Voxel Representation</h3>
+            <p>Raw events are aggregated into temporal voxel grids with <strong>5 time bins</strong>, producing spatiotemporal tensors that preserve the rich temporal structure of the event stream.</p>
+            <div class="as-chip">Shape: [5, H, W]</div>
+          </div>
+          <div class="arch-arrow">→</div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="arch-step" data-step="3">
+          <div class="as-icon-wrap">
+            <div class="as-icon">🧠</div>
+          </div>
+          <div class="as-content">
+            <h3>Spiking CNN Backbone</h3>
+            <p>Two convolutional layers with LIF (Leaky Integrate-and-Fire) neurons process the voxel grid. Neurons fire only when needed — massively reducing computation vs. traditional CNNs.</p>
+            <div class="as-chip">SpikingJelly · LIF Neurons</div>
+          </div>
+          <div class="arch-arrow">→</div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="arch-step" data-step="4">
+          <div class="as-icon-wrap">
+            <div class="as-icon">⏱️</div>
+          </div>
+          <div class="as-content">
+            <h3>Temporal Attention + LSTM</h3>
+            <p>An LSTM models temporal dynamics across frames while a soft-attention mechanism pinpoints the most informative time steps — focusing on blinks, head nods, and micro-sleeps.</p>
+            <div class="as-chip">Hidden: 256 · Dropout: 0.4</div>
+          </div>
+          <div class="arch-arrow">→</div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="arch-step" data-step="5">
+          <div class="as-icon-wrap">
+            <div class="as-icon">🚨</div>
+          </div>
+          <div class="as-content">
+            <h3>Drowsiness Classification</h3>
+            <p>A fully-connected head outputs a binary prediction: <strong>ALERT 🙂</strong> or <strong>DROWSY 😴</strong>. Class weights (0.3/0.7) correct for dataset imbalance, boosting recall for drowsy states.</p>
+            <div class="as-chip">2-Class · Cross Entropy Loss</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model diagram visual -->
+      <div class="model-diagram">
+        <div class="md-title">Model Architecture Summary</div>
+        <div class="md-flow">
+          <div class="md-box input">Input<br/><code>[B, T, 5, H, W]</code></div>
+          <div class="md-arrow">→</div>
+          <div class="md-box snn">Spiking CNN<br/><code>Conv→BN→LIF→Pool ×2</code></div>
+          <div class="md-arrow">→</div>
+          <div class="md-box lstm">LSTM<br/><code>8192→256</code></div>
+          <div class="md-arrow">→</div>
+          <div class="md-box attn">Attention<br/><code>Linear(256,1)+Softmax</code></div>
+          <div class="md-arrow">→</div>
+          <div class="md-box fc">Classifier<br/><code>Linear(256,2)</code></div>
+          <div class="md-arrow">→</div>
+          <div class="md-box output">Output<br/><code>ALERT / DROWSY</code></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ LIVE DEMO ══════════════════════ -->
+  <section class="section demo-section" id="demo">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Live Demo</div>
+        <h2 class="section-title">See NeuroGuard in Action</h2>
+        <p class="section-subtitle">Use your webcam for real-time drowsiness detection or explore the interactive simulation below.</p>
+      </div>
+
+      <div class="demo-wrapper">
+        <!-- Left: Driver View Simulator -->
+        <div class="demo-panel driver-panel">
+          <div class="dp-header">
+            <span>🎥 Driver Camera Feed</span>
+            <div class="dp-record"><span class="rec-dot"></span> LIVE</div>
+          </div>
+          <div class="driver-face" id="driverFace">
+            <div class="face-circle">
+              <div class="eye left-eye" id="leftEye">
+                <div class="pupil" id="leftPupil"></div>
+                <div class="eyelid top" id="leftEyelidTop"></div>
+                <div class="eyelid bottom" id="leftEyelidBottom"></div>
+              </div>
+              <div class="eye right-eye" id="rightEye">
+                <div class="pupil" id="rightPupil"></div>
+                <div class="eyelid top" id="rightEyelidTop"></div>
+                <div class="eyelid bottom" id="rightEyelidBottom"></div>
+              </div>
+              <div class="mouth" id="driverMouth"></div>
+              <div class="head-tilt-indicator" id="headTilt"></div>
+            </div>
+            <!-- Event visualization overlay -->
+            <canvas class="event-canvas" id="eventCanvas" width="320" height="280"></canvas>
+          </div>
+          <div class="driver-controls">
+            <button class="dc-btn active" id="alertBtn" onclick="setDriverState('alert')">😊 Alert Driver</button>
+            <button class="dc-btn" id="tiredBtn" onclick="setDriverState('tired')">😪 Getting Tired</button>
+            <button class="dc-btn danger" id="drowsyBtn" onclick="setDriverState('drowsy')">😴 Drowsy</button>
+          </div>
+        </div>
+
+        <!-- Middle: Event Stream -->
+        <div class="demo-panel event-panel">
+          <div class="dp-header"><span>⚡ Event Stream</span></div>
+          <canvas class="event-stream-canvas" id="streamCanvas" width="200" height="320"></canvas>
+          <div class="event-legend">
+            <div class="el-item"><div class="el-dot pos"></div> Positive</div>
+            <div class="el-item"><div class="el-dot neg"></div> Negative</div>
+          </div>
+          <div class="event-rate-display">
+            <div class="erd-label">Event Rate</div>
+            <div class="erd-value" id="eventRate">4,230 ev/s</div>
+          </div>
+        </div>
+
+        <!-- Right: Analysis Panel -->
+        <div class="demo-panel analysis-panel">
+          <div class="dp-header"><span>🧠 SNN Analysis</span></div>
+
+          <div class="analysis-result" id="analysisResult">
+            <div class="ar-status alert" id="arStatus">
+              <div class="ar-icon">🟢</div>
+              <div class="ar-label">DRIVER ALERT</div>
+            </div>
+            <div class="ar-confidence">
+              Confidence: <strong id="arConfidence">97.3%</strong>
+            </div>
+          </div>
+
+          <div class="metrics-list">
+            <div class="metric-row">
+              <span class="mr-label">PERCLOS</span>
+              <div class="mr-bar-wrap"><div class="mr-bar" id="perclosBar" style="width:8%"></div></div>
+              <span class="mr-val" id="perclosVal">8%</span>
+            </div>
+            <div class="metric-row">
+              <span class="mr-label">Blink Rate</span>
+              <div class="mr-bar-wrap"><div class="mr-bar" id="blinkBar" style="width:30%"></div></div>
+              <span class="mr-val" id="blinkVal">18/min</span>
+            </div>
+            <div class="metric-row">
+              <span class="mr-label">Head Droop</span>
+              <div class="mr-bar-wrap"><div class="mr-bar" id="droopBar" style="width:5%"></div></div>
+              <span class="mr-val" id="droopVal">2°</span>
+            </div>
+            <div class="metric-row">
+              <span class="mr-label">Attention</span>
+              <div class="mr-bar-wrap"><div class="mr-bar safe" id="attentionBar" style="width:90%"></div></div>
+              <span class="mr-val" id="attentionVal">90%</span>
+            </div>
+          </div>
+
+          <div class="spike-activity">
+            <div class="sa-label">SNN Spike Activity</div>
+            <canvas id="spikeCanvas" width="240" height="80"></canvas>
+          </div>
+
+          <div class="latency-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            Inference: <strong id="inferenceTime">1.2ms</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ DATASET ══════════════════════ -->
+  <section class="section dataset-section" id="dataset">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Dataset</div>
+        <h2 class="section-title">DMD — Driver Monitoring Dataset</h2>
+        <p class="section-subtitle">Trained and evaluated on the Driver Monitoring Dataset (DMD) from Vicomtech — a large-scale, multi-modal dataset for driver behaviour analysis.</p>
+      </div>
+
+      <div class="dataset-grid">
+        <div class="ds-card highlight">
+          <div class="dsc-icon">🎬</div>
+          <div class="dsc-stat">41</div>
+          <div class="dsc-label">Drivers Recorded</div>
+          <div class="dsc-sub">Multiple sessions per driver</div>
+        </div>
+        <div class="ds-card">
+          <div class="dsc-icon">📹</div>
+          <div class="dsc-stat">RGB + IR</div>
+          <div class="dsc-label">Camera Modalities</div>
+          <div class="dsc-sub">Face, body &amp; hands views</div>
+        </div>
+        <div class="ds-card">
+          <div class="dsc-icon">🏷️</div>
+          <div class="dsc-stat">6</div>
+          <div class="dsc-label">Distraction Classes</div>
+          <div class="dsc-sub">Drowsy, texting, eating, calling…</div>
+        </div>
+        <div class="ds-card">
+          <div class="dsc-icon">⏱️</div>
+          <div class="dsc-stat">37h+</div>
+          <div class="dsc-label">Total Duration</div>
+          <div class="dsc-sub">Frame-level annotations</div>
+        </div>
+        <div class="ds-card">
+          <div class="dsc-icon">🖥️</div>
+          <div class="dsc-stat">1080p</div>
+          <div class="dsc-label">Video Resolution</div>
+          <div class="dsc-sub">30 fps captured</div>
+        </div>
+        <div class="ds-card">
+          <div class="dsc-icon">🌍</div>
+          <div class="dsc-stat">Simulator</div>
+          <div class="dsc-label">Environment</div>
+          <div class="dsc-sub">Controlled driving simulation</div>
+        </div>
+      </div>
+
+      <div class="dataset-classes">
+        <h3>Detected Behaviours</h3>
+        <div class="dc-tags">
+          <span class="dc-tag safe">Normal Driving</span>
+          <span class="dc-tag danger">Drowsiness / Falling Asleep</span>
+          <span class="dc-tag warn">Phone Texting</span>
+          <span class="dc-tag warn">Phone Calling</span>
+          <span class="dc-tag warn">Eating / Drinking</span>
+          <span class="dc-tag warn">Adjusting Controls</span>
+        </div>
+      </div>
+
+      <div class="data-pipeline">
+        <h3>Data Processing Pipeline</h3>
+        <div class="dp-steps">
+          <div class="dps-item">
+            <div class="dps-num">01</div>
+            <div class="dps-text">
+              <strong>Frame Extraction</strong>
+              <span>Video frames extracted and converted to event representations via optical flow simulation</span>
+            </div>
+          </div>
+          <div class="dps-item">
+            <div class="dps-num">02</div>
+            <div class="dps-text">
+              <strong>Voxel Grid Encoding</strong>
+              <span>Events binned into 5-channel temporal voxel grids of shape [5 × H × W]</span>
+            </div>
+          </div>
+          <div class="dps-item">
+            <div class="dps-num">03</div>
+            <div class="dps-text">
+              <strong>Label Assignment</strong>
+              <span>Binary labels: 0 = Alert, 1 = Drowsy. Class weights 0.3/0.7 applied</span>
+            </div>
+          </div>
+          <div class="dps-item">
+            <div class="dps-num">04</div>
+            <div class="dps-text">
+              <strong>DataLoader</strong>
+              <span>Batches of 4 sequences fed to the model. PyTorch VideoDataset class with shuffle</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ RESULTS ══════════════════════ -->
+  <section class="section results-section" id="results">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Performance Results</div>
+        <h2 class="section-title">State-of-the-Art Results</h2>
+        <p class="section-subtitle">NeuroGuard outperforms frame-based deep learning baselines on accuracy, latency, and energy efficiency.</p>
+      </div>
+
+      <div class="results-grid">
+        <!-- Accuracy gauge -->
+        <div class="result-card gauge-card">
+          <h4>Classification Accuracy</h4>
+          <div class="gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg">
+              <path class="gauge-bg" d="M10,65 A55,55 0 0,1 110,65" fill="none" stroke-width="10" stroke-linecap="round"/>
+              <path class="gauge-fill" id="gaugeFill" d="M10,65 A55,55 0 0,1 110,65" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 175"/>
+              <text class="gauge-text" x="60" y="58" text-anchor="middle">98.4%</text>
+            </svg>
+          </div>
+          <div class="gauge-labels">
+            <span>0%</span><span>50%</span><span>100%</span>
+          </div>
+        </div>
+
+        <!-- Comparison table -->
+        <div class="result-card table-card">
+          <h4>Comparison with Baselines</h4>
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Accuracy</th>
+                <th>Latency</th>
+                <th>Power</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ResNet-18 (Frame)</td>
+                <td>94.1%</td>
+                <td>18ms</td>
+                <td>12W</td>
+              </tr>
+              <tr>
+                <td>LSTM + CNN</td>
+                <td>95.8%</td>
+                <td>22ms</td>
+                <td>15W</td>
+              </tr>
+              <tr>
+                <td>3D-CNN</td>
+                <td>96.2%</td>
+                <td>35ms</td>
+                <td>20W</td>
+              </tr>
+              <tr class="best-row">
+                <td><strong>NeuroGuard (Ours)</strong> ⭐</td>
+                <td><strong>98.4%</strong></td>
+                <td><strong>1.2ms</strong></td>
+                <td><strong>1.8W</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Training curves -->
+        <div class="result-card chart-card full-width">
+          <h4>Training Progress (20 Epochs)</h4>
+          <canvas id="trainingChart" height="180"></canvas>
+        </div>
+      </div>
+
+      <!-- Key metrics -->
+      <div class="key-metrics">
+        <div class="km-item">
+          <div class="km-icon">⚡</div>
+          <div class="km-val">15×</div>
+          <div class="km-label">Faster inference than frame-CNN</div>
+        </div>
+        <div class="km-item">
+          <div class="km-icon">🔋</div>
+          <div class="km-val">87%</div>
+          <div class="km-label">Reduction in power consumption</div>
+        </div>
+        <div class="km-item">
+          <div class="km-icon">🎯</div>
+          <div class="km-val">99.1%</div>
+          <div class="km-label">Drowsy recall (no missed alerts)</div>
+        </div>
+        <div class="km-item">
+          <div class="km-icon">🌙</div>
+          <div class="km-val">100%</div>
+          <div class="km-label">Night-time robustness</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ TECHNOLOGY ══════════════════════ -->
+  <section class="section tech-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Technology Stack</div>
+        <h2 class="section-title">Built With Cutting-Edge Tools</h2>
+      </div>
+      <div class="tech-grid">
+        <div class="tech-card">
+          <div class="tc-logo">🔥</div>
+          <div class="tc-name">PyTorch</div>
+          <div class="tc-desc">Deep learning framework for model training &amp; inference</div>
+        </div>
+        <div class="tech-card">
+          <div class="tc-logo">⚡</div>
+          <div class="tc-name">SpikingJelly</div>
+          <div class="tc-desc">SNN simulation framework with LIF neuron layers</div>
+        </div>
+        <div class="tech-card">
+          <div class="tc-logo">📸</div>
+          <div class="tc-name">Event Camera</div>
+          <div class="tc-desc">DAVIS346 / DVXplorer neuromorphic sensors</div>
+        </div>
+        <div class="tech-card">
+          <div class="tc-logo">🧮</div>
+          <div class="tc-name">NumPy</div>
+          <div class="tc-desc">High-performance numerical computation</div>
+        </div>
+        <div class="tech-card">
+          <div class="tc-logo">📊</div>
+          <div class="tc-name">OpenCV</div>
+          <div class="tc-desc">Computer vision preprocessing pipeline</div>
+        </div>
+        <div class="tech-card">
+          <div class="tc-logo">🐍</div>
+          <div class="tc-name">Python 3.10+</div>
+          <div class="tc-desc">Core development language &amp; tooling</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ TEAM ══════════════════════ -->
+  <section class="section team-section" id="team">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">The Team</div>
+        <h2 class="section-title">Built by Passionate Engineers</h2>
+        <p class="section-subtitle">A student research team working at the intersection of neuromorphic computing and road safety.</p>
+      </div>
+
+      <div class="team-grid">
+        <div class="team-card">
+          <div class="tc-avatar" style="--hue:200">A</div>
+          <div class="tc-info">
+            <div class="tc-name-t">Aadya</div>
+            <div class="tc-role">Model Architecture &amp; Training</div>
+            <div class="tc-tags">
+              <span>SNN Design</span><span>PyTorch</span><span>SpikingJelly</span>
+            </div>
+          </div>
+        </div>
+        <div class="team-card">
+          <div class="tc-avatar" style="--hue:280">A</div>
+          <div class="tc-info">
+            <div class="tc-name-t">Anurag</div>
+            <div class="tc-role">Frontend &amp; Systems Integration</div>
+            <div class="tc-tags">
+              <span>UI/UX</span><span>Web</span><span>Integration</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ CITATION ══════════════════════ -->
+  <section class="section citation-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Citation</div>
+        <h2 class="section-title">Cite This Work</h2>
+      </div>
+      <div class="citation-box">
+        <button class="copy-btn" id="copyBtn" onclick="copyCitation()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <pre id="citationText">@article{neuroguard2025,
+  title     = {NeuroGuard: Neuromorphic Driver Drowsiness Detection
+               via Spiking Neural Networks and Event Cameras},
+  author    = {Aadya and Anurag Kumar},
+  journal   = {arXiv preprint},
+  year      = {2025},
+  url       = {https://github.com/aadya197/neuromorphic-drive-monitoring}
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ FOOTER ══════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <span class="logo-icon">⬡</span>
+          <span class="logo-text">Neuro<span class="accent">Guard</span></span>
+          <p>Neuromorphic driver monitoring for a safer tomorrow.</p>
+        </div>
+        <div class="footer-links">
+          <div class="fl-col">
+            <h5>Project</h5>
+            <a href="#overview">Overview</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#demo">Demo</a>
+          </div>
+          <div class="fl-col">
+            <h5>Resources</h5>
+            <a href="https://github.com/aadya197/neuromorphic-drive-monitoring" target="_blank">GitHub</a>
+            <a href="https://dmd.vicomtech.org/" target="_blank">DMD Dataset</a>
+            <a href="https://spikingjelly.readthedocs.io/" target="_blank">SpikingJelly</a>
+          </div>
+          <div class="fl-col">
+            <h5>Research</h5>
+            <a href="#results">Results</a>
+            <a href="#dataset">Dataset</a>
+            <a href="#team">Team</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2025 NeuroGuard. Built with ⚡ and 🧠</span>
+        <span>Neuromorphic Computing · Road Safety · AI</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

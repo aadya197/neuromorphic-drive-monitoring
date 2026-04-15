@@ -47,7 +47,7 @@ class VideoDataset(Dataset):
         events = np.load(event_path)
 
         if len(events) < 50:
-            return torch.zeros((3, 5, 128, 128)), 0
+            return torch.zeros((3, 5, 64, 64)), 0
 
         num_chunks = 3
         chunk_size = len(events) // num_chunks

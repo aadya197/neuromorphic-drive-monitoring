@@ -33,6 +33,9 @@ print("  Neuromorphic Driver Monitoring — Inference Results")
 print("=" * 55)
 
 correct = 0
+all_preds = []
+all_targets = []
+
 for i in range(len(dataset)):
     x, y = dataset[i]
     x = x.unsqueeze(0)  # (1, time, C, H, W)
@@ -43,6 +46,9 @@ for i in range(len(dataset)):
         logits = model(x)
         probs  = F.softmax(logits, dim=1)[0]
         pred   = torch.argmax(probs).item()
+
+    all_preds.append(pred)
+    all_targets.append(y)
 
     video_name = os.path.basename(dataset.samples[i][0])
     normal_pct = probs[0].item() * 100
@@ -56,7 +62,24 @@ for i in range(len(dataset)):
     if pred == y:
         correct += 1
 
+from sklearn.metrics import classification_report, confusion_matrix
+
 accuracy = 100 * correct / len(dataset)
 print("\n" + "=" * 55)
 print(f"  Accuracy: {correct}/{len(dataset)} ({accuracy:.0f}%)")
+print("=" * 55)
+
+print("\n" + "=" * 55)
+print("  Classification Report (0: Normal, 1: Drowsy)")
+print("=" * 55)
+print(classification_report(all_targets, all_preds, target_names=["Normal", "Drowsy"], zero_division=0))
+
+print("\n" + "=" * 55)
+print("  Confusion Matrix")
+print("=" * 55)
+cm = confusion_matrix(all_targets, all_preds)
+print(f"                Predicted Normal | Predicted Drowsy")
+print(f"Actual Normal :       {cm[0][0]:<10} |       {cm[0][1]:<10}")
+if len(cm) > 1:
+    print(f"Actual Drowsy :       {cm[1][0]:<10} |       {cm[1][1]:<10}")
 print("=" * 55 + "\n")

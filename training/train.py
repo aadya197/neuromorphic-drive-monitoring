@@ -13,7 +13,7 @@ from dataset.video_dataset import VideoDataset
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DATA_PATH  = os.path.expanduser("~/Desktop/dmd")
-EPOCHS     = 80
+EPOCHS     = 120
 BATCH_SIZE = 4
 LR         = 3e-4
 SAVE_PATH  = "model.pth"
@@ -55,13 +55,13 @@ model = DriverMonitoringModel(num_classes=2).to(device)
 total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Parameters: {total_params:,}\n")
 
-# Auto class weights from data distribution
+# Auto class weights from data distribution (dampened to prevent over-penalizing Normal)
 labels   = [s[1] for s in dataset.samples]
 n_normal = labels.count(0)
 n_drowsy = labels.count(1)
 total    = len(labels)
-w_normal = total / (2 * max(n_normal, 1))
-w_drowsy = total / (2 * max(n_drowsy, 1))
+w_normal = min(total / (2 * max(n_normal, 1)), 1.5)
+w_drowsy = max(total / (2 * max(n_drowsy, 1)), 1.0)
 weights  = torch.tensor([w_normal, w_drowsy], dtype=torch.float).to(device)
 print(f"Class dist  → Normal: {n_normal} | Drowsy: {n_drowsy}")
 print(f"Class weights → Normal: {w_normal:.2f} | Drowsy: {w_drowsy:.2f}\n")

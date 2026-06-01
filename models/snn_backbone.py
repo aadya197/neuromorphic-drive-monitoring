@@ -27,7 +27,7 @@ class SNNBackbone(nn.Module):
     """
     Single-step SNN feature extractor.
     Input : (batch, 5, H, W)   — one voxel frame at a time
-    Output: (batch, 64)        — compact feature vector
+    Output: (batch, 128)       — compact feature vector
     """
 
     def __init__(self, dropout=0.3):
@@ -49,18 +49,27 @@ class SNNBackbone(nn.Module):
         self.lif2  = neuron.ParametricLIFNode(detach_reset=True)
         self.pool3 = nn.MaxPool2d(2)
 
-        # Stage 4 — spiking residual block
-        self.res2    = SpikingResBlock(64)
+        # Stage 4 — spiking residual block + pool
+        self.res2  = SpikingResBlock(64)
+        self.pool4 = nn.MaxPool2d(2)
+
+        # Stage 5 — 64 → 128 channels
+        self.conv3 = layer.Conv2d(64, 128, kernel_size=3, padding=1, bias=False)
+        self.bn3   = nn.BatchNorm2d(128)
+        self.lif3  = neuron.ParametricLIFNode(detach_reset=True)
+        self.res3  = SpikingResBlock(128)
         self.dropout = nn.Dropout2d(dropout)
 
-        # Global average pool → fixed 64-dim output
+        # Global average pool → fixed 128-dim output
         self.gap = nn.AdaptiveAvgPool2d(1)
 
     def forward(self, x):
         x = self.pool1(self.lif1(self.bn1(self.conv1(x))))
         x = self.pool2(self.res1(x))
-        x = self.dropout(x)
         x = self.pool3(self.lif2(self.bn2(self.conv2(x))))
-        x = self.res2(x)
-        x = self.gap(x).flatten(1)   # (batch, 64)
+        x = self.pool4(self.res2(x))
+        x = self.dropout(x)
+        x = self.lif3(self.bn3(self.conv3(x)))
+        x = self.res3(x)
+        x = self.gap(x).flatten(1)   # (batch, 128)
         return x

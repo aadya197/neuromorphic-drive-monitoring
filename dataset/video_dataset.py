@@ -58,17 +58,28 @@ def get_label_from_annotation(json_path, total_frames):
 
 def augment_voxels(voxels):
     """
-    Lightweight voxel augmentation to improve generalization:
+    Advanced voxel augmentation to improve generalization:
     - Random horizontal flip
     - Random Gaussian noise
+    - Random Spatial Cutout (simulating occlusion)
     """
     # Random horizontal flip (left-right mirror)
     if random.random() > 0.5:
         voxels = torch.flip(voxels, dims=[-1])
 
-    # Random Gaussian noise (small)
-    noise = torch.randn_like(voxels) * 0.03
-    voxels = voxels + noise
+    # Random Gaussian noise
+    if random.random() > 0.3:
+        noise = torch.randn_like(voxels) * 0.05
+        voxels = voxels + noise
+
+    # Random Spatial Cutout
+    if random.random() > 0.5:
+        _, _, h, w = voxels.shape
+        cut_h = random.randint(10, 20)
+        cut_w = random.randint(10, 20)
+        y = random.randint(0, h - cut_h)
+        x = random.randint(0, w - cut_w)
+        voxels[:, :, y:y+cut_h, x:x+cut_w] = 0.0
 
     # Clamp to valid range
     voxels = torch.clamp(voxels, -1.0, 1.0)
@@ -160,7 +171,16 @@ class VideoDataset(Dataset):
 
         voxels = []
         for i in range(num_chunks):
-            chunk = events[i * chunk_size:(i + 1) * chunk_size]
+            start_idx = i * chunk_size
+            end_idx = (i + 1) * chunk_size
+            
+            # Temporal Augmentation: Random jitter of chunk boundaries
+            if self.augment and chunk_size > 10:
+                jitter = random.randint(-int(chunk_size * 0.15), int(chunk_size * 0.15))
+                start_idx = max(0, start_idx + jitter)
+                end_idx = min(len(events), end_idx + jitter)
+                
+            chunk = events[start_idx:end_idx]
             voxel = events_to_voxel(chunk)
             voxel = voxel / voxel.max() if voxel.max() != 0 else voxel
             voxels.append(voxel)

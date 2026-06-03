@@ -35,7 +35,7 @@ class DriverMonitoringModel(nn.Module):
         self.classifier = nn.Sequential(
             nn.LayerNorm(gru_hidden * 2),
             nn.Dropout(dropout),
-            nn.Linear(gru_hidden * 2, num_classes),
+            nn.Linear(gru_hidden * 2, 5), # [Drowsy, Distracted, Glasses, Sunglasses, Night]
         )
 
     def forward(self, x_face, x_body):

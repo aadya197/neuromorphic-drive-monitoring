@@ -52,7 +52,7 @@ loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
 
-model = DriverMonitoringModel(num_classes=2).to(device)
+model = DriverMonitoringModel().to(device)
 total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Parameters: {total_params:,}\n")
 
@@ -61,13 +61,19 @@ labels = torch.stack([s[2] for s in dataset.samples])
 total  = len(labels)
 n_drowsy = labels[:, 0].sum().item()
 n_dist   = labels[:, 1].sum().item()
+n_glasses = labels[:, 2].sum().item()
+n_sunglasses = labels[:, 3].sum().item()
+n_night = labels[:, 4].sum().item()
 
 w_drowsy = min(total / max(n_drowsy, 1), 5.0)
 w_dist   = min(total / max(n_dist, 1), 5.0)
+w_glasses = min(total / max(n_glasses, 1), 5.0)
+w_sunglasses = min(total / max(n_sunglasses, 1), 5.0)
+w_night = min(total / max(n_night, 1), 5.0)
 
-weights = torch.tensor([w_drowsy, w_dist], dtype=torch.float).to(device)
-print(f"Class counts → Drowsy: {int(n_drowsy)} | Distracted: {int(n_dist)}")
-print(f"Class weights → Drowsy: {w_drowsy:.2f} | Distracted: {w_dist:.2f}\n")
+weights = torch.tensor([w_drowsy, w_dist, w_glasses, w_sunglasses, w_night], dtype=torch.float).to(device)
+print(f"Class counts → Drowsy: {int(n_drowsy)} | Dist: {int(n_dist)} | Glasses: {int(n_glasses)} | Sunglasses: {int(n_sunglasses)} | Night: {int(n_night)}")
+print(f"Class weights → Drowsy: {w_drowsy:.2f} | Dist: {w_dist:.2f} | Glasses: {w_glasses:.2f} | Sunglasses: {w_sunglasses:.2f} | Night: {w_night:.2f}\n")
 
 loss_fn   = MultiLabelFocalLoss(alpha=weights, gamma=2.0)
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)

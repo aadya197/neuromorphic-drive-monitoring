@@ -16,7 +16,7 @@ if not os.path.exists("model.pth"):
     print("ERROR: model.pth not found. Run training first.")
     sys.exit(1)
 
-model = DriverMonitoringModel(num_classes=2)
+model = DriverMonitoringModel()
 model.load_state_dict(torch.load("model.pth", map_location="cpu"))
 model.eval()
 
@@ -36,11 +36,14 @@ exact_matches = 0
 all_preds = []
 all_targets = []
 
-def get_label_str(is_drowsy, is_dist):
-    if is_drowsy and is_dist: return LABELS[3]
-    if is_drowsy: return LABELS[1]
-    if is_dist: return LABELS[2]
-    return LABELS[0]
+def get_label_str(pred):
+    labels = []
+    if pred[0]: labels.append("DROWSY 😴")
+    if pred[1]: labels.append("DISTRACTED 📱")
+    if pred[2]: labels.append("GLASSES 👓")
+    if pred[3]: labels.append("SUNGLASSES 🕶️")
+    if pred[4]: labels.append("NIGHT 🌙")
+    return " + ".join(labels) if labels else "NORMAL 🙂"
 
 for i in range(len(dataset)):
     x_face, x_body = dataset[i][0]
@@ -61,16 +64,15 @@ for i in range(len(dataset)):
 
     video_name = os.path.basename(dataset.samples[i][0])
     
-    drowsy_pct = probs[0].item() * 100
-    dist_pct   = probs[1].item() * 100
+    d_pct, di_pct, g_pct, sg_pct, n_pct = (probs * 100).tolist()
     
-    pred_str = get_label_str(pred[0].item() > 0.5, pred[1].item() > 0.5)
-    true_str = get_label_str(y[0].item() > 0.5, y[1].item() > 0.5)
+    pred_str = get_label_str(pred)
+    true_str = get_label_str(y)
     
     match = "✓" if (pred == y).all() else "✗"
 
     print(f"\n[{match}] {video_name}")
-    print(f"    Predicted : {pred_str}  (Drowsy {drowsy_pct:.1f}% | Distracted {dist_pct:.1f}%)")
+    print(f"    Predicted : {pred_str}  (Dr:{d_pct:.1f}% Di:{di_pct:.1f}% G:{g_pct:.1f}% SG:{sg_pct:.1f}% N:{n_pct:.1f}%)")
     print(f"    Actual    : {true_str}")
 
     if (pred == y).all():
@@ -92,13 +94,13 @@ print("=" * 65)
 print("\n" + "=" * 65)
 print("  Multi-Label Classification Report")
 print("=" * 65)
-print(classification_report(all_targets, all_preds, target_names=["Drowsy", "Distracted"], zero_division=0))
+print(classification_report(all_targets, all_preds, target_names=["Drowsy", "Distracted", "Glasses", "Sunglasses", "Night"], zero_division=0))
 
 print("\n" + "=" * 65)
 print("  Multi-Label Confusion Matrices")
 print("=" * 65)
 mcm = multilabel_confusion_matrix(all_targets, all_preds)
-names = ["Drowsy", "Distracted"]
+names = ["Drowsy", "Distracted", "Glasses", "Sunglasses", "Night"]
 for i, matrix in enumerate(mcm):
     print(f"\n[{names[i]}]")
     print(f"TN: {matrix[0,0]} | FP: {matrix[0,1]}")
@@ -106,12 +108,12 @@ for i, matrix in enumerate(mcm):
 print("=" * 65 + "\n")
 
 # Plot the confusion matrices
-fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+fig, axes = plt.subplots(1, 5, figsize=(20, 4))
 for i, matrix in enumerate(mcm):
     sns.heatmap(matrix, annot=True, fmt='d', cmap='Blues', ax=axes[i],
                 xticklabels=['Negative', 'Positive'],
                 yticklabels=['Negative', 'Positive'])
-    axes[i].set_title(f'Confusion Matrix: {names[i]}')
+    axes[i].set_title(f'{names[i]}')
     axes[i].set_ylabel('Actual')
     axes[i].set_xlabel('Predicted')
     

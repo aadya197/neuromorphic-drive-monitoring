@@ -70,9 +70,9 @@ def load_distraction_labels(json_path, total_frames):
     return distracted_frames
 
 
-def get_label_from_annotation(drowsy_json_path, dist_json_path, total_frames):
+def get_label_from_annotation(drowsy_json_path, dist_json_path, total_frames, prefix=""):
     """
-    Returns a multi-label tensor: [is_drowsy, is_distracted]
+    Returns a multi-label tensor: [is_drowsy, is_distracted, is_glasses, is_sunglasses, is_night]
     Threshold: 20% of frames showing the behavior.
     """
     drowsy_frames = load_drowsiness_labels(drowsy_json_path, total_frames)
@@ -81,7 +81,12 @@ def get_label_from_annotation(drowsy_json_path, dist_json_path, total_frames):
     is_drowsy = 1.0 if (drowsy_frames.sum() / max(len(drowsy_frames), 1)) > 0.20 else 0.0
     is_distracted = 1.0 if (dist_frames.sum() / max(len(dist_frames), 1)) > 0.20 else 0.0
 
-    return torch.tensor([is_drowsy, is_distracted], dtype=torch.float32)
+    g_prefix = prefix.split('_')[0] if '_' in prefix else prefix
+    is_glasses = 1.0 if g_prefix in ['gB', 'gE'] else 0.0
+    is_sunglasses = 1.0 if g_prefix in ['gC', 'gF'] else 0.0
+    is_night = 1.0 if g_prefix in ['gD', 'gE', 'gF'] else 0.0
+
+    return torch.tensor([is_drowsy, is_distracted, is_glasses, is_sunglasses, is_night], dtype=torch.float32)
 
 
 def augment_voxels(voxels):
@@ -160,9 +165,9 @@ class VideoDataset(Dataset):
         valid_sessions = []
         for prefix, paths in session_dict.items():
             if "face" in paths and "body" in paths:
-                valid_sessions.append((paths["face"], paths["body"]))
+                valid_sessions.append((paths["face"], paths["body"], prefix))
 
-        for face_path, body_path in valid_sessions:
+        for face_path, body_path, prefix in valid_sessions:
             # Find paired annotation JSON in the same directory as the face video
             video_dir  = os.path.dirname(face_path)
             json_files = [f for f in os.listdir(video_dir)]
@@ -173,12 +178,9 @@ class VideoDataset(Dataset):
             drowsy_path = os.path.join(video_dir, drowsy_json[0]) if drowsy_json else ""
             dist_path   = os.path.join(video_dir, dist_json[0]) if dist_json else ""
             
-            import cv2
-            cap          = cv2.VideoCapture(face_path)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            cap.release()
+            total_frames = 5000
             
-            label = get_label_from_annotation(drowsy_path, dist_path, max(total_frames, 1))
+            label = get_label_from_annotation(drowsy_path, dist_path, max(total_frames, 1), prefix)
 
             self.samples.append((face_path, body_path, label))
 
@@ -186,9 +188,13 @@ class VideoDataset(Dataset):
         num_normal = ((labels[:, 0] == 0) & (labels[:, 1] == 0)).sum().item()
         num_drowsy = (labels[:, 0] == 1).sum().item()
         num_dist   = (labels[:, 1] == 1).sum().item()
+        num_glasses = (labels[:, 2] == 1).sum().item()
+        num_sunglasses = (labels[:, 3] == 1).sum().item()
+        num_night = (labels[:, 4] == 1).sum().item()
         
         print(f"[VideoDataset] Loaded {len(self.samples)} dual-camera videos | "
-              f"Normal: {num_normal} | Drowsy: {num_drowsy} | Distracted: {num_dist} "
+              f"Normal: {num_normal} | Drowsy: {num_drowsy} | Distracted: {num_dist} | "
+              f"Glasses: {num_glasses} | Sunglasses: {num_sunglasses} | Night: {num_night} "
               f"| augment={augment}")
 
     def __len__(self):

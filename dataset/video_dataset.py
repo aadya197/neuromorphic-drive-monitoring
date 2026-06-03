@@ -43,17 +43,45 @@ def load_drowsiness_labels(json_path, total_frames):
     return drowsy_frames
 
 
-def get_label_from_annotation(json_path, total_frames):
+def load_distraction_labels(json_path, total_frames):
     """
-    Returns 1 (drowsy) if >20% of frames are drowsy, else 0 (normal).
-    Lowered from 30% → 20% to catch sessions with subtle but real drowsiness.
-    Falls back to 0 if no annotation found.
+    Parse the DMD OpenLabel annotation JSON for distraction.
+    Returns a boolean array of length total_frames.
     """
-    labels = load_drowsiness_labels(json_path, total_frames)
-    if labels.sum() == 0:
-        return 0
-    ratio = labels.sum() / len(labels)
-    return 1 if ratio > 0.20 else 0
+    distracted_frames = np.zeros(total_frames, dtype=bool)
+
+    if not os.path.exists(json_path):
+        return distracted_frames
+
+    with open(json_path, "r") as f:
+        data = json.load(f)
+
+    actions = data.get("openlabel", {}).get("actions", {})
+
+    # Any action that is a 'driver_action' but NOT 'safe_drive' is considered a distraction
+    for action in actions.values():
+        act_type = action.get("type", "")
+        if act_type.startswith("driver_actions/") and act_type != "driver_actions/safe_drive":
+            for interval in action.get("frame_intervals", []):
+                start = interval["frame_start"]
+                end   = min(interval["frame_end"] + 1, total_frames)
+                distracted_frames[start:end] = True
+
+    return distracted_frames
+
+
+def get_label_from_annotation(drowsy_json_path, dist_json_path, total_frames):
+    """
+    Returns a multi-label tensor: [is_drowsy, is_distracted]
+    Threshold: 20% of frames showing the behavior.
+    """
+    drowsy_frames = load_drowsiness_labels(drowsy_json_path, total_frames)
+    dist_frames   = load_distraction_labels(dist_json_path, total_frames)
+
+    is_drowsy = 1.0 if (drowsy_frames.sum() / max(len(drowsy_frames), 1)) > 0.20 else 0.0
+    is_distracted = 1.0 if (dist_frames.sum() / max(len(dist_frames), 1)) > 0.20 else 0.0
+
+    return torch.tensor([is_drowsy, is_distracted], dtype=torch.float32)
 
 
 def augment_voxels(voxels):
@@ -109,86 +137,105 @@ class VideoDataset(Dataset):
             if name.lower().startswith("dmd") and os.path.isdir(candidate):
                 search_roots.append(candidate)
 
-        face_videos = []
-        seen_files  = set()   # deduplicate by filename
+        session_dict = {}  # prefix -> { "face": path, "body": path }
 
         for root_folder in search_roots:
             for root, dirs, files in os.walk(root_folder):
                 for file in sorted(files):
-                    if not (file.endswith(".mp4") or file.endswith(".avi")):
+                    if not file.endswith(".mp4"):
                         continue
-                    if file in seen_files:
-                        continue
-                    if "rgb_face" not in file and "ir_face" not in file:
-                        continue
-                    seen_files.add(file)
-                    face_videos.append(os.path.join(root, file))
+                    
+                    if "rgb_face" in file or "ir_face" in file:
+                        prefix = file.replace("_rgb_face.mp4", "").replace("_ir_face.mp4", "")
+                        if prefix not in session_dict:
+                            session_dict[prefix] = {}
+                        session_dict[prefix]["face"] = os.path.join(root, file)
+                        
+                    elif "rgb_body" in file or "ir_body" in file:
+                        prefix = file.replace("_rgb_body.mp4", "").replace("_ir_body.mp4", "")
+                        if prefix not in session_dict:
+                            session_dict[prefix] = {}
+                        session_dict[prefix]["body"] = os.path.join(root, file)
 
-        for video_path in face_videos:
-            # Find paired annotation JSON in the same directory
-            video_dir  = os.path.dirname(video_path)
-            json_files = [
-                f for f in os.listdir(video_dir)
-                if f.endswith("_ann_drowsiness.json")
-            ]
+        valid_sessions = []
+        for prefix, paths in session_dict.items():
+            if "face" in paths and "body" in paths:
+                valid_sessions.append((paths["face"], paths["body"]))
 
-            if json_files:
-                json_path = os.path.join(video_dir, json_files[0])
-                import cv2
-                cap          = cv2.VideoCapture(video_path)
-                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                cap.release()
-                label = get_label_from_annotation(json_path, max(total_frames, 1))
-            else:
-                label = 1 if "drowsiness" in video_path.lower() else 0
+        for face_path, body_path in valid_sessions:
+            # Find paired annotation JSON in the same directory as the face video
+            video_dir  = os.path.dirname(face_path)
+            json_files = [f for f in os.listdir(video_dir)]
+            
+            drowsy_json = [f for f in json_files if f.endswith("_ann_drowsiness.json")]
+            dist_json   = [f for f in json_files if f.endswith("_ann_distraction.json")]
 
-            self.samples.append((video_path, label))
+            drowsy_path = os.path.join(video_dir, drowsy_json[0]) if drowsy_json else ""
+            dist_path   = os.path.join(video_dir, dist_json[0]) if dist_json else ""
+            
+            import cv2
+            cap          = cv2.VideoCapture(face_path)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            cap.release()
+            
+            label = get_label_from_annotation(drowsy_path, dist_path, max(total_frames, 1))
 
-        labels = [s[1] for s in self.samples]
-        print(f"[VideoDataset] Loaded {len(self.samples)} videos | "
-              f"Normal: {labels.count(0)} | Drowsy: {labels.count(1)} "
+            self.samples.append((face_path, body_path, label))
+
+        labels = torch.stack([s[2] for s in self.samples])
+        num_normal = ((labels[:, 0] == 0) & (labels[:, 1] == 0)).sum().item()
+        num_drowsy = (labels[:, 0] == 1).sum().item()
+        num_dist   = (labels[:, 1] == 1).sum().item()
+        
+        print(f"[VideoDataset] Loaded {len(self.samples)} dual-camera videos | "
+              f"Normal: {num_normal} | Drowsy: {num_drowsy} | Distracted: {num_dist} "
               f"| augment={augment}")
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        video_path, label = self.samples[idx]
+        face_path, body_path, label = self.samples[idx]
 
-        video_name = os.path.basename(video_path) + ".npy"
-        event_path = os.path.join("data", "events", video_name)
-
-        if os.path.exists(event_path):
-            events = np.load(event_path)
-        else:
-            events = video_to_events(video_path)
-
-        if len(events) < 50:
-            return torch.zeros((5, 5, 64, 64)), label
-
-        num_chunks = 5
-        chunk_size = max(len(events) // num_chunks, 1)
-
-        voxels = []
-        for i in range(num_chunks):
-            start_idx = i * chunk_size
-            end_idx = (i + 1) * chunk_size
+        def process_video(video_path):
+            video_name = os.path.basename(video_path) + ".npy"
+            event_path = os.path.join("data", "events", video_name)
             
-            # Temporal Augmentation: Random jitter of chunk boundaries
-            if self.augment and chunk_size > 10:
-                jitter = random.randint(-int(chunk_size * 0.15), int(chunk_size * 0.15))
-                start_idx = max(0, start_idx + jitter)
-                end_idx = min(len(events), end_idx + jitter)
+            if os.path.exists(event_path):
+                events = np.load(event_path)
+            else:
+                events = video_to_events(video_path)
+                os.makedirs(os.path.dirname(event_path), exist_ok=True)
+                np.save(event_path, events)
+
+            if len(events) < 50:
+                return torch.zeros((5, 5, 64, 64))
+
+            num_chunks = 5
+            chunk_size = max(len(events) // num_chunks, 1)
+
+            voxels = []
+            for i in range(num_chunks):
+                start_idx = i * chunk_size
+                end_idx = (i + 1) * chunk_size
                 
-            chunk = events[start_idx:end_idx]
-            voxel = events_to_voxel(chunk)
-            voxel = voxel / voxel.max() if voxel.max() != 0 else voxel
-            voxels.append(voxel)
+                if self.augment and chunk_size > 10:
+                    jitter = random.randint(-int(chunk_size * 0.15), int(chunk_size * 0.15))
+                    start_idx = max(0, start_idx + jitter)
+                    end_idx = min(len(events), end_idx + jitter)
+                    
+                chunk = events[start_idx:end_idx]
+                voxel = events_to_voxel(chunk)
+                voxel = voxel / voxel.max() if voxel.max() != 0 else voxel
+                voxels.append(voxel)
 
-        voxels = torch.stack(voxels)   # (5, 5, H, W)
-        voxels = torch.clamp(voxels, -1.0, 1.0)
+            voxels = torch.stack(voxels)
+            voxels = torch.clamp(voxels, -1.0, 1.0)
+            if self.augment:
+                voxels = augment_voxels(voxels)
+            return voxels
 
-        if self.augment:
-            voxels = augment_voxels(voxels)
+        voxels_face = process_video(face_path)
+        voxels_body = process_video(body_path)
 
-        return voxels, label
+        return (voxels_face, voxels_body), label

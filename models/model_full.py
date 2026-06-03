@@ -17,12 +17,13 @@ class DriverMonitoringModel(nn.Module):
     def __init__(self, num_classes=2, gru_hidden=128, dropout=0.3):
         super().__init__()
 
-        self.backbone   = SNNBackbone(dropout=0.2)
-        self.input_norm = nn.LayerNorm(128)
+        self.face_backbone = SNNBackbone(dropout=0.2)
+        self.body_backbone = SNNBackbone(dropout=0.2)
+        self.input_norm = nn.LayerNorm(256)
 
-        # Bidirectional GRU: 128 context dims (since gru_hidden=128)
+        # Bidirectional GRU: 256 context dims (since 128+128=256)
         self.gru = nn.GRU(
-            input_size=128,
+            input_size=256,
             hidden_size=gru_hidden,
             num_layers=1,
             batch_first=True,
@@ -37,19 +38,25 @@ class DriverMonitoringModel(nn.Module):
             nn.Linear(gru_hidden * 2, num_classes),
         )
 
-    def forward(self, x):
-        # x: (batch, time, C, H, W)  or  (batch, C, H, W)
-        if x.dim() == 4:
-            x = x.unsqueeze(1)
+    def forward(self, x_face, x_body):
+        # inputs: (batch, time, C, H, W)
+        if x_face.dim() == 4:
+            x_face = x_face.unsqueeze(1)
+            x_body = x_body.unsqueeze(1)
 
-        batch, time, c, h, w = x.shape
+        batch, time, c, h, w = x_face.shape
 
-        # Process each time-step independently through the SNN backbone
-        # reshape: (batch*time, C, H, W)
-        x = x.reshape(batch * time, c, h, w)
-        features = self.backbone(x)               # (batch*time, 128)
+        # Process each time-step independently through the SNN backbones
+        x_face = x_face.reshape(batch * time, c, h, w)
+        x_body = x_body.reshape(batch * time, c, h, w)
+        
+        face_features = self.face_backbone(x_face)               # (batch*time, 128)
+        body_features = self.body_backbone(x_body)               # (batch*time, 128)
 
-        # Restore temporal axis: (batch, time, 128)
+        # Concatenate features
+        features = torch.cat([face_features, body_features], dim=1) # (batch*time, 256)
+
+        # Restore temporal axis: (batch, time, 256)
         features = features.view(batch, time, -1)
         features = self.input_norm(features)
 

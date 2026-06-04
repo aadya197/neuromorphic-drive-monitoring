@@ -3,6 +3,7 @@ import json
 import random
 import numpy as np
 import torch
+import cv2
 from torch.utils.data import Dataset
 
 from dataset.event_from_video import video_to_events
@@ -178,7 +179,14 @@ class VideoDataset(Dataset):
             drowsy_path = os.path.join(video_dir, drowsy_json[0]) if drowsy_json else ""
             dist_path   = os.path.join(video_dir, dist_json[0]) if dist_json else ""
             
-            total_frames = 5000
+            cap = cv2.VideoCapture(face_path)
+            if cap.isOpened():
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                if total_frames <= 0:
+                    total_frames = 5000
+                cap.release()
+            else:
+                total_frames = 5000
             
             label = get_label_from_annotation(drowsy_path, dist_path, max(total_frames, 1), prefix)
 

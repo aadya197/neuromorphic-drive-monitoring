@@ -3,6 +3,15 @@ import numpy as np
 
 
 def video_to_events(video_path, threshold=5, max_frames=60, max_events=30000):
+    """
+    CONVERTS RGB VIDEO TO SYNTHETIC EVENT DATA (EMULATION).
+    
+    IMPORTANT CAVEAT: This function uses simple frame differencing (~30 FPS) 
+    to approximate the behavior of a Dynamic Vision Sensor (DVS). Real 
+    neuromorphic cameras fire continuously at microsecond temporal resolution.
+    This is a coarse synthetic approximation used for training models when 
+    hardware DVS data is unavailable. Do not treat these as true hardware events.
+    """
     cap = cv2.VideoCapture(video_path)
 
     ret, prev = cap.read()

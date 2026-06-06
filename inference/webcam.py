@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 import collections
+from spikingjelly.activation_based import functional
 
 from models.model_full import DriverMonitoringModel
 from dataset.preprocessing import events_to_voxel
@@ -128,6 +129,9 @@ def run_webcam():
                 vb = torch.stack(list(voxel_q_body)).unsqueeze(0).to(device)
                 
                 with torch.no_grad():
+                    # Reset SNN membrane potentials between inference windows
+                    # to prevent state leaking across temporal batches.
+                    functional.reset_net(model)
                     logits = model(vf, vb)
                     probs = torch.sigmoid(logits)[0].cpu().numpy()
                     preds = probs

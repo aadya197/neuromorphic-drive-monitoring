@@ -1,7 +1,6 @@
 import os
 import sys
 import torch
-import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -9,7 +8,11 @@ from models.model_full import DriverMonitoringModel
 from dataset.video_dataset import VideoDataset
 from spikingjelly.activation_based import functional
 
-LABELS = {0: "NORMAL 🙂", 1: "DROWSY 😴", 2: "DISTRACTED 📱", 3: "DROWSY+DISTRACTED 😴📱"}
+# Multi-label class names for the 5-target SNN classifier
+CLASS_NAMES = ["Drowsy", "Distracted", "Glasses", "Sunglasses", "Night"]
+
+# Must match HELD_OUT_SUBJECTS in training/train.py exactly
+HELD_OUT_SUBJECTS = {"s1", "s4"}
 
 # ── Load model ────────────────────────────────────────────────────────────────
 if not os.path.exists("model.pth"):
@@ -20,12 +23,18 @@ model = DriverMonitoringModel()
 model.load_state_dict(torch.load("model.pth", map_location="cpu"))
 model.eval()
 
-# ── Dataset ───────────────────────────────────────────────────────────────────
-dataset = VideoDataset(os.path.expanduser("~/Desktop/dmd"), augment=False)
+# ── Dataset (held-out test subjects only) ─────────────────────────────────────
+DATA_PATH = os.path.expanduser("~/Desktop/dmd")
+dataset = VideoDataset(DATA_PATH, augment=False,
+                       split='test', held_out_subjects=HELD_OUT_SUBJECTS)
 
 if len(dataset) == 0:
-    print("No videos found.")
+    print(f"No test videos found for held-out subjects {HELD_OUT_SUBJECTS}.")
+    print("Check that these subject IDs exist in your dataset blocks.")
     sys.exit(1)
+
+print(f"Evaluating on {len(dataset)} held-out test videos "
+      f"(subjects: {HELD_OUT_SUBJECTS}) — never seen during training.\n")
 
 # ── Inference ─────────────────────────────────────────────────────────────────
 print("\n" + "=" * 65)

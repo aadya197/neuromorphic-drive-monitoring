@@ -16,14 +16,19 @@ def load_drowsiness_labels(json_path, total_frames):
     Returns a boolean array of length total_frames:
         True  → frame is drowsy (eyes closed or yawning)
         False → frame is normal
+    Gracefully handles corrupt files, network timeouts, and missing paths.
     """
     drowsy_frames = np.zeros(total_frames, dtype=bool)
 
     if not os.path.exists(json_path):
         return drowsy_frames
 
-    with open(json_path, "r") as f:
-        data = json.load(f)
+    try:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+    except (TimeoutError, OSError, json.JSONDecodeError, Exception) as e:
+        print(f"[WARNING] Could not read {os.path.basename(json_path)}: {e} — skipping labels.")
+        return drowsy_frames
 
     actions = data.get("openlabel", {}).get("actions", {})
 
@@ -48,14 +53,19 @@ def load_distraction_labels(json_path, total_frames):
     """
     Parse the DMD OpenLabel annotation JSON for distraction.
     Returns a boolean array of length total_frames.
+    Gracefully handles corrupt files, network timeouts, and missing paths.
     """
     distracted_frames = np.zeros(total_frames, dtype=bool)
 
     if not os.path.exists(json_path):
         return distracted_frames
 
-    with open(json_path, "r") as f:
-        data = json.load(f)
+    try:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+    except (TimeoutError, OSError, json.JSONDecodeError, Exception) as e:
+        print(f"[WARNING] Could not read {os.path.basename(json_path)}: {e} — skipping labels.")
+        return distracted_frames
 
     actions = data.get("openlabel", {}).get("actions", {})
 
@@ -123,7 +133,7 @@ def augment_voxels(voxels):
 
 class VideoDataset(Dataset):
 
-    def __init__(self, folder_path, augment=False):
+    def __init__(self, folder_path, augment=False, split=None, held_out_subjects=None):
         """
         Scans folder_path AND all dmd* folders in ~/Downloads for rgb_face videos.
         Deduplicates by filename so the same session isn't loaded twice.
@@ -131,9 +141,17 @@ class VideoDataset(Dataset):
 
         Args:
             augment: if True, applies random voxel augmentation (use during training)
+            split: 'train', 'test', or None (all data). Filters by subject ID.
+            held_out_subjects: set of subject ID strings (e.g. {'s1', 's4'}) to
+                               reserve as the held-out test set. Required if split
+                               is not None. These IDs must NOT overlap with training.
+                               Subject IDs are extracted from the filename prefix
+                               (e.g. gB_10_s5_... → subject 's5').
         """
         self.samples = []    # list of (video_path, label)
         self.augment  = augment
+        self.split = split
+        self.held_out_subjects = held_out_subjects or set()
 
         # Build list of all roots to scan
         search_roots = [folder_path]
@@ -169,6 +187,18 @@ class VideoDataset(Dataset):
                 valid_sessions.append((paths["face"], paths["body"], prefix))
 
         for face_path, body_path, prefix in valid_sessions:
+            # --- Subject-level split filtering ---
+            # Extract subject ID from the filename prefix: gB_10_s5_... → 's5'
+            parts = prefix.split('_')
+            subject_id = next((p for p in parts if p.startswith('s') and p[1:].isdigit()), None)
+
+            if self.split is not None and subject_id is not None:
+                is_held_out = subject_id in self.held_out_subjects
+                if self.split == 'test' and not is_held_out:
+                    continue   # skip train subjects when building test set
+                if self.split == 'train' and is_held_out:
+                    continue   # skip test subjects when building train set
+
             # Find paired annotation JSON in the same directory as the face video
             video_dir  = os.path.dirname(face_path)
             json_files = [f for f in os.listdir(video_dir)]

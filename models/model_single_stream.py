@@ -8,7 +8,7 @@ Architecturally identical to DriverMonitoringModel, except:
   - All other components (LayerNorm, BiGRU, TemporalAttention, classifier) are unchanged.
 
 This isolates the question: "Does the body camera stream improve detection?"
-If dual-stream (256-dim) outperforms single-stream (128-dim), the body camera
+If dual-stream (128-dim) outperforms single-stream (64-dim), the body camera
 contributes meaningful spatial context beyond the face stream alone.
 """
 import torch
@@ -28,15 +28,15 @@ class SingleStreamSNN(nn.Module):
     Output: (batch, num_classes)  logits
     """
 
-    def __init__(self, num_classes=5, gru_hidden=128, dropout=0.3):
+    def __init__(self, num_classes=5, gru_hidden=64, dropout=0.3):
         super().__init__()
 
         self.face_backbone = SNNBackbone(dropout=0.2)
-        # Input to GRU is 128 (face only) — half of the dual-stream model
-        self.input_norm = nn.LayerNorm(128)
+        # Input to GRU is 64 (face only) — half of the dual-stream model
+        self.input_norm = nn.LayerNorm(64)
 
         self.gru = nn.GRU(
-            input_size=128,
+            input_size=64,
             hidden_size=gru_hidden,
             num_layers=1,
             batch_first=True,
@@ -58,9 +58,9 @@ class SingleStreamSNN(nn.Module):
         batch, time, c, h, w = x_face.shape
 
         x_face = x_face.reshape(batch * time, c, h, w)
-        face_features = self.face_backbone(x_face)          # (batch*time, 128)
+        face_features = self.face_backbone(x_face)          # (batch*time, 64)
 
-        features = face_features.view(batch, time, -1)      # (batch, time, 128)
+        features = face_features.view(batch, time, -1)      # (batch, time, 64)
         features = self.input_norm(features)
 
         gru_out, _ = self.gru(features)                     # (batch, time, 256)

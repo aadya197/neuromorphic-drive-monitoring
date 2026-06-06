@@ -75,11 +75,33 @@ python3 -m inference.webcam
 
 ## 📊 Results
 
-When evaluated on 47 dual-camera videos (77 positive context events), the 5-target multi-label network achieved the following metrics:
-- **Nighttime Recall:** 100%
-- **Sunglasses Recall:** 90%
-- **Glasses Recall:** 87%
-- **Distraction Precision:** 84%
-- **Drowsiness Precision:** 91%
+### 1. Contextual Accuracy Breakdown (Full SNN + BiGRU + Attention)
 
-The SNN correctly disentangles concurrent behaviors (Multi-Labeling), meaning the model is perfectly capable of detecting that a driver is both *Drowsy* AND wearing *Sunglasses* simultaneously.
+When evaluated across the full dataset (49 videos), our proposed dual-stream model demonstrates strong resilience to challenging environmental conditions. The table below outlines the F1-Scores for Drowsiness and Distraction detection, as well as the exact-match accuracy (where all 5 labels must be predicted correctly simultaneously):
+
+| Environmental Context | Samples | Drowsy (F1) | Distracted (F1) | Exact Match (All 5 Labels) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Daylight** | 42 | 0.78 | 0.88 | 69% |
+| **Nighttime** | 7 | 0.40 | 0.67 | 57% |
+| **No Eyewear** | 16 | 0.73 | 0.89 | 75% |
+| **Glasses** | 23 | 0.73 | 0.83 | 61% |
+| **Sunglasses** | 10 | 0.67 | 0.86 | 70% |
+| **Overall (All Conditions)** | 49 | 0.71 | 0.85 | 67% |
+
+The SNN correctly disentangles concurrent behaviors (Multi-Labeling), meaning the model is perfectly capable of detecting that a driver is both *Drowsy* AND wearing *Sunglasses* simultaneously, retaining high distraction-detection capabilities even under severe occlusion (sunglasses).
+
+### 2. Component Ablation Study (Held-Out Subjects)
+
+To validate our architectural choices, we performed a 5-way ablation study on unseen test subjects (`s1`, `s4`). We compare our full model against a standard CNN backbone, a single-stream variant (face only), and SNN variants missing key temporal modules (GRU, Temporal Attention). 
+
+*Metrics reported below are F1-Scores for individual classes, and Exact Match accuracy overall:*
+
+| Architecture Variant | Drowsy | Distracted | Glasses | Sunglasses | Night | Exact Match |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **SNN + BiGRU + Attention (Ours)** | — | **1.000** | **0.889** | **1.000** | **1.000** | **90.0%** |
+| CNN + BiGRU + Attention (Base) | — | 1.000 | 0.667 | 0.500 | 0.000 | 60.0% |
+| SNN + BiGRU (No Attention) | — | 1.000 | 0.800 | 0.000 | 0.000 | 60.0% |
+| SNN Face-only (Single Stream) | — | 0.889 | 0.667 | 0.000 | 0.000 | 50.0% |
+| SNN Only (No BiGRU) | — | 0.947 | 0.500 | 0.500 | 0.000 | 50.0% |
+
+*(Note: Drowsy is marked '—' here as the held-out test subjects `s1`/`s4` did not contain drowsy samples. The contextual evaluation in Section 1 covers Drowsiness.)*

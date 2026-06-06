@@ -27,40 +27,40 @@ class SNNBackbone(nn.Module):
     """
     Single-step SNN feature extractor.
     Input : (batch, 5, H, W)   — one voxel frame at a time
-    Output: (batch, 128)       — compact feature vector
+    Output: (batch, 64)        — compact feature vector
     """
 
     def __init__(self, dropout=0.3):
         super().__init__()
 
-        # Stage 1 — 5 → 32 channels
-        self.conv1 = layer.Conv2d(5, 32, kernel_size=3, padding=1, bias=False)
-        self.bn1   = nn.BatchNorm2d(32)
+        # Stage 1 — 5 → 16 channels
+        self.conv1 = layer.Conv2d(5, 16, kernel_size=3, padding=1, bias=False)
+        self.bn1   = nn.BatchNorm2d(16)
         self.lif1  = neuron.ParametricLIFNode(detach_reset=True)
         self.pool1 = nn.MaxPool2d(2)
 
         # Stage 2 — spiking residual block + pool
-        self.res1  = SpikingResBlock(32)
+        self.res1  = SpikingResBlock(16)
         self.pool2 = nn.MaxPool2d(2)
 
-        # Stage 3 — 32 → 64 channels
-        self.conv2 = layer.Conv2d(32, 64, kernel_size=3, padding=1, bias=False)
-        self.bn2   = nn.BatchNorm2d(64)
+        # Stage 3 — 16 → 32 channels
+        self.conv2 = layer.Conv2d(16, 32, kernel_size=3, padding=1, bias=False)
+        self.bn2   = nn.BatchNorm2d(32)
         self.lif2  = neuron.ParametricLIFNode(detach_reset=True)
         self.pool3 = nn.MaxPool2d(2)
 
         # Stage 4 — spiking residual block + pool
-        self.res2  = SpikingResBlock(64)
+        self.res2  = SpikingResBlock(32)
         self.pool4 = nn.MaxPool2d(2)
 
-        # Stage 5 — 64 → 128 channels
-        self.conv3 = layer.Conv2d(64, 128, kernel_size=3, padding=1, bias=False)
-        self.bn3   = nn.BatchNorm2d(128)
+        # Stage 5 — 32 → 64 channels
+        self.conv3 = layer.Conv2d(32, 64, kernel_size=3, padding=1, bias=False)
+        self.bn3   = nn.BatchNorm2d(64)
         self.lif3  = neuron.ParametricLIFNode(detach_reset=True)
-        self.res3  = SpikingResBlock(128)
+        self.res3  = SpikingResBlock(64)
         self.dropout = nn.Dropout2d(dropout)
 
-        # Global average pool → fixed 128-dim output
+        # Global average pool → fixed 64-dim output
         self.gap = nn.AdaptiveAvgPool2d(1)
 
     def forward(self, x):
@@ -71,5 +71,5 @@ class SNNBackbone(nn.Module):
         x = self.dropout(x)
         x = self.lif3(self.bn3(self.conv3(x)))
         x = self.res3(x)
-        x = self.gap(x).flatten(1)   # (batch, 128)
+        x = self.gap(x).flatten(1)   # (batch, 64)
         return x

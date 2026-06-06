@@ -6,7 +6,7 @@ Used to answer: "Does temporal modelling (BiGRU) contribute beyond static SNN fe
 Difference from full DriverMonitoringModel:
   - No GRU, no attention.
   - SNN backbone features from all 5 time-steps are mean-pooled directly.
-  - Classifier operates on the pooled 256-dim feature vector.
+  - Classifier operates on the pooled 128-dim feature vector.
   - Everything else (dual-stream, SNNBackbone, classifier head shape) is identical.
 """
 import torch
@@ -24,13 +24,13 @@ class SNNOnlyNoGRU(nn.Module):
         super().__init__()
         self.face_backbone = SNNBackbone(dropout=0.2)
         self.body_backbone = SNNBackbone(dropout=0.2)
-        self.input_norm    = nn.LayerNorm(256)
+        self.input_norm    = nn.LayerNorm(128)
 
-        # No GRU — direct classifier from 256-dim pooled features
+        # No GRU — direct classifier from 128-dim pooled features
         self.classifier = nn.Sequential(
-            nn.LayerNorm(256),
+            nn.LayerNorm(128),
             nn.Dropout(dropout),
-            nn.Linear(256, num_classes),
+            nn.Linear(128, num_classes),
         )
 
     def forward(self, x_face, x_body):
@@ -42,14 +42,14 @@ class SNNOnlyNoGRU(nn.Module):
         x_face = x_face.reshape(batch * time, c, h, w)
         x_body = x_body.reshape(batch * time, c, h, w)
 
-        face_features = self.face_backbone(x_face)             # (batch*time, 128)
-        body_features = self.body_backbone(x_body)             # (batch*time, 128)
+        face_features = self.face_backbone(x_face)             # (batch*time, 64)
+        body_features = self.body_backbone(x_body)             # (batch*time, 64)
 
-        features = torch.cat([face_features, body_features], dim=1)  # (batch*time, 256)
-        features = features.view(batch, time, -1)                      # (batch, time, 256)
+        features = torch.cat([face_features, body_features], dim=1)  # (batch*time, 128)
+        features = features.view(batch, time, -1)                      # (batch, time, 128)
         features = self.input_norm(features)
 
         # Mean pool across time — no GRU (ablation)
-        context = features.mean(dim=1)                                 # (batch, 256)
+        context = features.mean(dim=1)                                 # (batch, 128)
 
         return self.classifier(context)

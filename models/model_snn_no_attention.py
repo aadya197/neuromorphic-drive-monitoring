@@ -17,14 +17,14 @@ class SNNBiGRUNoAttention(nn.Module):
     SNN + BiGRU without temporal attention.
     Mean-pools across the GRU time dimension instead of using learned attention weights.
     """
-    def __init__(self, num_classes=5, gru_hidden=128, dropout=0.3):
+    def __init__(self, num_classes=5, gru_hidden=64, dropout=0.3):
         super().__init__()
         self.face_backbone = SNNBackbone(dropout=0.2)
         self.body_backbone = SNNBackbone(dropout=0.2)
-        self.input_norm    = nn.LayerNorm(256)
+        self.input_norm    = nn.LayerNorm(128)
 
         self.gru = nn.GRU(
-            input_size=256,
+            input_size=128,
             hidden_size=gru_hidden,
             num_layers=1,
             batch_first=True,
@@ -53,9 +53,9 @@ class SNNBiGRUNoAttention(nn.Module):
         features = features.view(batch, time, -1)
         features = self.input_norm(features)
 
-        gru_out, _ = self.gru(features)            # (batch, time, 256)
+        gru_out, _ = self.gru(features)            # (batch, time, 128)
 
         # Mean pooling instead of attention (ablation)
-        context = gru_out.mean(dim=1)              # (batch, 256)
+        context = gru_out.mean(dim=1)              # (batch, 128)
 
         return self.classifier(context)

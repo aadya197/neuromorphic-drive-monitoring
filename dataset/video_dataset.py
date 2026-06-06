@@ -106,6 +106,9 @@ def augment_voxels(voxels):
     - Random horizontal flip
     - Random Gaussian noise
     - Random Spatial Cutout (simulating occlusion)
+    - Night simulation: global darkness scaling
+    - Night simulation: sparse spike dropout (noisy IR sensor)
+    - Night simulation: dark-region occlusion (shadow strip)
     """
     # Random horizontal flip (left-right mirror)
     if random.random() > 0.5:
@@ -124,6 +127,28 @@ def augment_voxels(voxels):
         y = random.randint(0, h - cut_h)
         x = random.randint(0, w - cut_w)
         voxels[:, :, y:y+cut_h, x:x+cut_w] = 0.0
+
+    # ── Night augmentations (30% probability each) ────────────────────────────
+
+    # 1. Global darkness: scale down all voxel magnitudes to mimic low-light
+    #    event sparsity — fewer photon changes → weaker / fewer spikes.
+    if random.random() < 0.3:
+        scale = random.uniform(0.3, 0.7)   # dim to 30–70% of original intensity
+        voxels = voxels * scale
+
+    # 2. Sparse spike dropout: randomly zero-out events to simulate the
+    #    noisy, sparse output of an IR/nighttime event sensor.
+    if random.random() < 0.3:
+        dropout_mask = (torch.rand_like(voxels) > 0.25).float()  # drop 25% of spikes
+        voxels = voxels * dropout_mask
+
+    # 3. Dark-region occlusion: black out a horizontal band to mimic
+    #    dashboard reflections or deep shadows in low-light conditions.
+    if random.random() < 0.3:
+        _, _, h, w = voxels.shape
+        strip_h = random.randint(8, 18)
+        y_start = random.randint(h // 3, 2 * h // 3)   # centre-ish strip
+        voxels[:, :, y_start:y_start + strip_h, :] = 0.0
 
     # Clamp to valid range
     voxels = torch.clamp(voxels, -1.0, 1.0)

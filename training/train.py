@@ -13,7 +13,7 @@ from dataset.video_dataset import VideoDataset
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DATA_PATH  = os.path.expanduser("~/Desktop/dmd")
-EPOCHS     = 120
+EPOCHS     = 200
 BATCH_SIZE = 4
 LR         = 3e-4
 SAVE_PATH  = "model.pth"
@@ -115,7 +115,10 @@ for epoch in range(EPOCHS):
         functional.reset_net(model)
 
         pred = model(x_face, x_body)
-        loss = loss_fn(pred, y)
+        
+        # Label smoothing to prevent overconfidence (combats overfitting)
+        y_smoothed = y * (1 - 0.1) + 0.05
+        loss = loss_fn(pred, y_smoothed)
 
         optimizer.zero_grad()
         loss.backward()

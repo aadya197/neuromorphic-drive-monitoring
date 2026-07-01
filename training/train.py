@@ -47,8 +47,14 @@ def main():
     args = parse_args()
     
     # Config paths
-    DATA_PATH = os.path.expanduser("~/Desktop/dmd")
+    # DMD dataset root (may be empty/absent — graceful degradation)
+    DATA_PATH       = os.path.expanduser("~/Desktop/dmd")
     DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")
+    # 3MDAD dataset root (inside the project)
+    MDAD_PATH       = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "3mdad"
+    )
     HELD_OUT_SUBJECTS = {"s1", "s4"}
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,6 +63,7 @@ def main():
     train_dataset, val_dataset, weights = build_combined_datasets(
         dmd_path          = DATA_PATH,
         driveandact_path  = DRIVEANDACT_PATH,
+        mdad_path         = MDAD_PATH,
         held_out_subjects = HELD_OUT_SUBJECTS,
         device            = device,
     )
@@ -69,7 +76,7 @@ def main():
     val_loader   = DataLoader(val_dataset,   batch_size=args.batch_size, shuffle=False)
 
     _dmd_train_ds = train_dataset.datasets[0] if hasattr(train_dataset, 'datasets') else train_dataset
-    num_subj = max(_dmd_train_ds.num_subjects, 1)
+    num_subj = max(getattr(_dmd_train_ds, 'num_subjects', 0), 1)
 
     # Initialize requested model
     if args.model == "full":
@@ -89,6 +96,11 @@ def main():
         SAVE_PATH = "model_single_stream.pth"
 
     model.to(device)
+    # Set single-step mode explicitly for all SNN layers
+    try:
+        functional.set_step_mode(model, step_mode='s')
+    except Exception:
+        pass
     print(f"Parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
     
     loss_fn = MultiLabelFocalLoss(alpha=weights, gamma=2.0)
@@ -113,11 +125,9 @@ def main():
             x_face, x_body = x_face.to(device), x_body.to(device)
             y, subj = y.to(device), subj.to(device)
 
-            if hasattr(model, 'spiking_encoder') or hasattr(model, 'encoder'):
-                try:
-                    functional.reset_net(model)
-                except Exception:
-                    pass
+            # Zero gradients and reset SNN state BEFORE the forward pass
+            optimizer.zero_grad()
+            functional.reset_net(model)
 
             if args.model == "single_stream":
                 out = model(x_face)
@@ -129,19 +139,21 @@ def main():
             loss = loss_fn(pred_behavior, y_smoothed)
 
             valid_mask = subj >= 0
-            if isinstance(out, tuple) and valid_mask.any():
+            if isinstance(out, tuple) and len(out) > 1 and valid_mask.any():
                 pred_subject = out[1]
                 loss_subject = subject_loss_fn(pred_subject[valid_mask], subj[valid_mask])
                 loss = loss + loss_subject
-                subj_pred = pred_subject.argmax(dim=1)
-                subj_correct += (subj_pred[valid_mask] == subj[valid_mask]).sum().item()
+                with torch.no_grad():
+                    subj_pred = pred_subject.argmax(dim=1)
+                    subj_correct += (subj_pred[valid_mask] == subj[valid_mask]).sum().item()
 
-            optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            # Detach SNN state after update to prevent graph leakage
+            functional.reset_net(model)
 
-            probs = torch.sigmoid(pred_behavior)
+            probs = torch.sigmoid(pred_behavior.detach())
             predicted = (probs > 0.5).float()
             correct += (predicted == y).all(dim=1).sum().item()
             total_preds += y.size(0)
@@ -164,11 +176,11 @@ def main():
                     x_face, x_body = x_face.to(device), x_body.to(device)
                     y = y.to(device)
                     
-                    if hasattr(model, 'spiking_encoder') or hasattr(model, 'encoder'):
-                        try:
-                            functional.reset_net(model)
-                        except Exception:
-                            pass
+                    # Always reset SNN state before val forward pass
+                    try:
+                        functional.reset_net(model)
+                    except Exception:
+                        pass
                         
                     if args.model == "single_stream":
                         out = model(x_face)

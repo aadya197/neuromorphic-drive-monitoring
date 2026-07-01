@@ -26,6 +26,7 @@ from torch.utils.data import ConcatDataset
 
 from dataset.video_dataset import VideoDataset
 from dataset.drive_and_act import DriveAndActDataset
+from dataset.dataset_3mdad import Dataset3MDAD
 
 
 # Drive&Act subject IDs used as the held-out val split for that dataset.
@@ -61,13 +62,14 @@ def _compute_weights(datasets, device, num_classes=5, max_weight=5.0):
 def build_combined_datasets(
     dmd_path,
     driveandact_path=None,
+    mdad_path=None,
     held_out_subjects=None,
     device=None,
     augment_train=True,
     num_classes=5,
 ):
     """
-    Build combined train and val datasets from DMD and (optionally) Drive&Act.
+    Build combined train and val datasets from DMD, Drive&Act, and/or 3MDAD.
 
     Parameters
     ----------
@@ -76,6 +78,8 @@ def build_combined_datasets(
     driveandact_path : str | None
         Path to the Drive&Act dataset root.  Pass None (or a non-existent
         path) to skip — the function degrades gracefully to DMD-only.
+    mdad_path : str | None
+        Path to the 3MDAD dataset root (data/3mdad).  Pass None to skip.
     held_out_subjects : set[str] | None
         DMD subject IDs to reserve for validation (e.g. {"s1", "s4"}).
     device : torch.device | None
@@ -111,8 +115,8 @@ def build_combined_datasets(
         held_out_subjects=held_out_subjects,
     )
 
-    train_datasets = [dmd_train]
-    val_datasets   = [dmd_val]
+    train_datasets = [dmd_train] if len(dmd_train) > 0 else []
+    val_datasets   = [dmd_val]   if len(dmd_val) > 0   else []
 
     # ── Secondary dataset: Drive&Act (optional) ───────────────────────────────
     daa_path = os.path.expanduser(driveandact_path) if driveandact_path else ""
@@ -137,9 +141,37 @@ def build_combined_datasets(
             val_datasets.append(daa_val)
     else:
         if driveandact_path:
-            print(f"[Combined] Drive&Act path not found ({daa_path}) — using DMD only.")
+            print(f"[Combined] Drive&Act path not found ({daa_path}) — skipping.")
         else:
-            print("[Combined] No Drive&Act path provided — using DMD only.")
+            print("[Combined] No Drive&Act path provided — skipping.")
+
+    # ── Tertiary dataset: 3MDAD (optional) ───────────────────────────────────
+    # 3MDAD held-out subjects for validation: S1, S4 (same naming convention)
+    MDAD_HELD_OUT = {"S1", "S4"}
+    mdad_root = os.path.expanduser(mdad_path) if mdad_path else ""
+    if mdad_root and os.path.isdir(mdad_root):
+        mdad_train = Dataset3MDAD(
+            mdad_root,
+            augment=augment_train,
+            split="train",
+            held_out_subjects=MDAD_HELD_OUT,
+        )
+        mdad_val = Dataset3MDAD(
+            mdad_root,
+            augment=False,
+            split="test",
+            held_out_subjects=MDAD_HELD_OUT,
+        )
+        if len(mdad_train) > 0:
+            print(f"[Combined] 3MDAD train: {len(mdad_train)} | val: {len(mdad_val)} samples")
+            train_datasets.append(mdad_train)
+        if len(mdad_val) > 0:
+            val_datasets.append(mdad_val)
+    else:
+        if mdad_path:
+            print(f"[Combined] 3MDAD path not found ({mdad_root}) — skipping.")
+        else:
+            print("[Combined] No 3MDAD path provided — skipping.")
 
     # ── Merge ─────────────────────────────────────────────────────────────────
     train_ds = ConcatDataset(train_datasets) if len(train_datasets) > 1 else train_datasets[0]

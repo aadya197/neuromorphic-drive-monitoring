@@ -258,14 +258,17 @@ class VideoDataset(Dataset):
             
         self.num_subjects = len(self.subject_to_idx)
 
-        labels = torch.stack([s[2] for s in self.samples])
-        num_normal = ((labels[:, 0] == 0) & (labels[:, 1] == 0)).sum().item()
-        num_drowsy = (labels[:, 0] == 1).sum().item()
-        num_dist   = (labels[:, 1] == 1).sum().item()
-        num_glasses = (labels[:, 2] == 1).sum().item()
-        num_sunglasses = (labels[:, 3] == 1).sum().item()
-        num_night = (labels[:, 4] == 1).sum().item()
-        
+        if self.samples:
+            labels = torch.stack([s[2] for s in self.samples])
+            num_normal = ((labels[:, 0] == 0) & (labels[:, 1] == 0)).sum().item()
+            num_drowsy = (labels[:, 0] == 1).sum().item()
+            num_dist   = (labels[:, 1] == 1).sum().item()
+            num_glasses = (labels[:, 2] == 1).sum().item()
+            num_sunglasses = (labels[:, 3] == 1).sum().item()
+            num_night = (labels[:, 4] == 1).sum().item()
+        else:
+            num_normal = num_drowsy = num_dist = num_glasses = num_sunglasses = num_night = 0
+
         print(f"[VideoDataset] Loaded {len(self.samples)} dual-camera videos | "
               f"Normal: {num_normal} | Drowsy: {num_drowsy} | Distracted: {num_dist} | "
               f"Glasses: {num_glasses} | Sunglasses: {num_sunglasses} | Night: {num_night} "

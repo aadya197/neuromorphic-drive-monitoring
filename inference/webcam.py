@@ -132,7 +132,9 @@ def run_webcam():
                     # Reset SNN membrane potentials between inference windows
                     # to prevent state leaking across temporal batches.
                     functional.reset_net(model)
-                    logits = model(vf, vb)
+                    out = model(vf, vb)
+                    # DriverMonitoringModel returns (behavior_logits, subject_logits)
+                    logits = out[0] if isinstance(out, tuple) else out
                     probs = torch.sigmoid(logits)[0].cpu().numpy()
                     preds = probs
                     

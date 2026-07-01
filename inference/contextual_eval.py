@@ -25,9 +25,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.model_full import DriverMonitoringModel
 from dataset.video_dataset import VideoDataset
+from dataset.combined import build_combined_datasets
 from spikingjelly.activation_based import functional
 
-DATA_PATH = os.path.expanduser("~/Desktop/dmd")
+DATA_PATH        = os.path.expanduser("~/Desktop/dmd")
+# Set to your Drive&Act root to include it in the contextual breakdown, or None to skip.
+DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")  # folders: inner_mirror, a_column_driver, activities_3s
 THRESHOLD = 0.5
 
 # Label indices
@@ -46,6 +49,7 @@ def run_inference(model, dataset):
     all_targets, all_probs = [], []
 
     for i in range(len(dataset)):
+        # dataset[i] is a 3-tuple: (x, label, subject_idx)
         x_face, x_body = dataset[i][0]
         y = dataset[i][1]
         x_face = x_face.unsqueeze(0).to(device)
@@ -53,7 +57,9 @@ def run_inference(model, dataset):
 
         with torch.no_grad():
             functional.reset_net(model)
-            logits = model(x_face, x_body)
+            out = model(x_face, x_body)
+            # DriverMonitoringModel returns (behavior_logits, subject_logits)
+            logits = out[0] if isinstance(out, tuple) else out
             probs  = torch.sigmoid(logits)[0].cpu().numpy()
 
         all_targets.append(y.numpy())
@@ -105,7 +111,13 @@ def main():
         sys.exit(1)
 
     # Load FULL dataset (no split — to maximise samples per condition group)
-    dataset = VideoDataset(DATA_PATH, augment=False)
+    # Combines DMD + Drive&Act (if available) with no held-out split.
+    dataset, _, _ = build_combined_datasets(
+        dmd_path          = DATA_PATH,
+        driveandact_path  = DRIVEANDACT_PATH,
+        held_out_subjects = set(),  # no holdout — use all data for condition breakdown
+        augment_train     = False,
+    )
     if len(dataset) == 0:
         print("ERROR: No videos found.")
         sys.exit(1)

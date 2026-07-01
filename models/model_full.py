@@ -5,6 +5,27 @@ from models.snn_backbone import SNNBackbone
 from models.attention_module import TemporalAttention
 
 
+class GradientReversalFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        output = grad_output.neg() * ctx.alpha
+        return output, None
+
+class GRL(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.alpha = 1.0
+
+    def forward(self, x):
+        return GradientReversalFunction.apply(x, self.alpha)
+
+
+
 class DriverMonitoringModel(nn.Module):
     """
     Full driver monitoring model:
@@ -14,7 +35,7 @@ class DriverMonitoringModel(nn.Module):
       Classifier head                        → (batch, num_classes)
     """
 
-    def __init__(self, num_classes=2, gru_hidden=64, dropout=0.3):
+    def __init__(self, num_classes=5, num_subjects=1, gru_hidden=64, dropout=0.3):
         super().__init__()
 
         self.face_backbone = SNNBackbone(dropout=0.2)
@@ -36,6 +57,13 @@ class DriverMonitoringModel(nn.Module):
             nn.LayerNorm(gru_hidden * 2),
             nn.Dropout(dropout),
             nn.Linear(gru_hidden * 2, 5), # [Drowsy, Distracted, Glasses, Sunglasses, Night]
+        )
+
+        self.grl = GRL()
+        self.subject_classifier = nn.Sequential(
+            nn.LayerNorm(gru_hidden * 2),
+            nn.Dropout(dropout),
+            nn.Linear(gru_hidden * 2, num_subjects),
         )
 
     def forward(self, x_face, x_body):
@@ -66,4 +94,10 @@ class DriverMonitoringModel(nn.Module):
         # Attention-weighted pooling: (batch, 128)
         context = self.attention(gru_out)
 
-        return self.classifier(context)
+        pred_behavior = self.classifier(context)
+
+        # Subject Adversarial Branch
+        context_reversed = self.grl(context)
+        pred_subject = self.subject_classifier(context_reversed)
+
+        return pred_behavior, pred_subject

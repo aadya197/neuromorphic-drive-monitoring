@@ -1,5 +1,7 @@
 import os
 import sys
+import argparse
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,30 +10,29 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from spikingjelly.activation_based import functional
-from models.model_full import DriverMonitoringModel
 from dataset.video_dataset import VideoDataset
+from dataset.combined import build_combined_datasets
 
-# ── Config ────────────────────────────────────────────────────────────────────
-DATA_PATH  = os.path.expanduser("~/Desktop/dmd")
-EPOCHS     = 200
-BATCH_SIZE = 4
-LR         = 3e-4
-SAVE_PATH  = "model.pth"
+from models.model_full import DriverMonitoringModel
+from models.baseline_cnn_gru import BaselineDriverMonitoringModel
+from models.model_snn_no_attention import SNNBiGRUNoAttention
+from models.model_snn_only import SNNOnlyNoGRU
+from models.model_single_stream import SingleStreamSNN
 
-# Subject IDs held out exclusively for testing — NEVER seen during training.
-# These must remain fixed for the lifetime of the paper to ensure reproducibility.
-# Based on the DMD dataset, subjects s1 and s4 are held out (~20% of data).
-HELD_OUT_SUBJECTS = {"s1", "s4"}
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train Driver Monitoring Models")
+    parser.add_argument("--model", type=str, default="full",
+                        choices=["full", "baseline_cnn", "snn_no_attention", "snn_only", "single_stream"],
+                        help="Which model variant to train")
+    parser.add_argument("--epochs", type=int, default=120, help="Number of training epochs")
+    parser.add_argument("--batch_size", type=int, default=4, help="Batch size")
+    parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate")
+    return parser.parse_args()
 
-
-# ── Multi-Label Focal Loss ──────────────────────────────────────────────────
 class MultiLabelFocalLoss(nn.Module):
-    """
-    Focal Loss for Multi-label classification (BCE based).
-    """
     def __init__(self, alpha=None, gamma=2.0):
         super().__init__()
-        self.alpha = alpha  # (num_classes,)
+        self.alpha = alpha
         self.gamma = gamma
 
     def forward(self, inputs, targets):
@@ -42,131 +43,158 @@ class MultiLabelFocalLoss(nn.Module):
             loss = loss * self.alpha
         return loss.mean()
 
+def main():
+    args = parse_args()
+    
+    # Config paths
+    DATA_PATH = os.path.expanduser("~/Desktop/dmd")
+    DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")
+    HELD_OUT_SUBJECTS = {"s1", "s4"}
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device} | Model: {args.model}")
 
-# ── Dataset (subject-level split) ─────────────────────────────────────────────
-train_dataset = VideoDataset(DATA_PATH, augment=True,
-                             split='train', held_out_subjects=HELD_OUT_SUBJECTS)
-val_dataset   = VideoDataset(DATA_PATH, augment=False,
-                             split='test',  held_out_subjects=HELD_OUT_SUBJECTS)
+    train_dataset, val_dataset, weights = build_combined_datasets(
+        dmd_path          = DATA_PATH,
+        driveandact_path  = DRIVEANDACT_PATH,
+        held_out_subjects = HELD_OUT_SUBJECTS,
+        device            = device,
+    )
 
-if len(train_dataset) == 0:
-    print("ERROR: No training videos found. Check DATA_PATH and HELD_OUT_SUBJECTS.")
-    sys.exit(1)
+    if len(train_dataset) == 0:
+        print("ERROR: No training videos found.")
+        sys.exit(1)
 
-if len(val_dataset) == 0:
-    print("WARNING: No validation videos found. Check HELD_OUT_SUBJECTS — they may "
-          "not exist in your current dataset blocks.")
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    val_loader   = DataLoader(val_dataset,   batch_size=args.batch_size, shuffle=False)
 
-print(f"\nTrain set: {len(train_dataset)} videos | "
-      f"Val set (held-out subjects {HELD_OUT_SUBJECTS}): {len(val_dataset)} videos\n")
+    _dmd_train_ds = train_dataset.datasets[0] if hasattr(train_dataset, 'datasets') else train_dataset
+    num_subj = max(_dmd_train_ds.num_subjects, 1)
 
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
-                          num_workers=0, pin_memory=False)
-val_loader   = DataLoader(val_dataset,   batch_size=BATCH_SIZE, shuffle=False,
-                          num_workers=0, pin_memory=False)
+    # Initialize requested model
+    if args.model == "full":
+        model = DriverMonitoringModel(num_subjects=num_subj)
+        SAVE_PATH = "model.pth"
+    elif args.model == "baseline_cnn":
+        model = BaselineDriverMonitoringModel(num_classes=5)
+        SAVE_PATH = "model_baseline_cnn.pth"
+    elif args.model == "snn_no_attention":
+        model = SNNBiGRUNoAttention(num_classes=5)
+        SAVE_PATH = "model_snn_no_attention.pth"
+    elif args.model == "snn_only":
+        model = SNNOnlyNoGRU(num_classes=5)
+        SAVE_PATH = "model_snn_only.pth"
+    elif args.model == "single_stream":
+        model = SingleStreamSNN(num_classes=5)
+        SAVE_PATH = "model_single_stream.pth"
 
-# ── Model ─────────────────────────────────────────────────────────────────────
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Device: {device}")
+    model.to(device)
+    print(f"Parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+    
+    loss_fn = MultiLabelFocalLoss(alpha=weights, gamma=2.0)
+    subject_loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-5)
 
-model = DriverMonitoringModel().to(device)
-total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"Parameters: {total_params:,}\n")
+    best_val_acc = -1.0
+    
+    for epoch in range(args.epochs):
+        model.train()
+        total_loss, correct, total_preds = 0.0, 0, 0
+        subj_correct = 0
 
-# Auto class weights computed from TRAIN set only (not the whole dataset)
-labels = torch.stack([s[2] for s in train_dataset.samples])
-total  = len(labels)
-n_drowsy     = labels[:, 0].sum().item()
-n_dist       = labels[:, 1].sum().item()
-n_glasses    = labels[:, 2].sum().item()
-n_sunglasses = labels[:, 3].sum().item()
-n_night      = labels[:, 4].sum().item()
+        p = float(epoch) / args.epochs
+        lam = 2. / (1. + math.exp(-10 * p)) - 1.
+        if hasattr(model, 'grl'):
+            model.grl.alpha = lam
 
-w_drowsy     = min(total / max(n_drowsy, 1), 5.0)
-w_dist       = min(total / max(n_dist, 1), 5.0)
-w_glasses    = min(total / max(n_glasses, 1), 5.0)
-w_sunglasses = min(total / max(n_sunglasses, 1), 5.0)
-w_night      = min(total / max(n_night, 1), 5.0)
+        for x, y, subj in train_loader:
+            x_face, x_body = x
+            x_face, x_body = x_face.to(device), x_body.to(device)
+            y, subj = y.to(device), subj.to(device)
 
-weights = torch.tensor([w_drowsy, w_dist, w_glasses, w_sunglasses, w_night],
-                       dtype=torch.float).to(device)
-print(f"Train class counts  → Drowsy: {int(n_drowsy)} | Dist: {int(n_dist)} | "
-      f"Glasses: {int(n_glasses)} | Sunglasses: {int(n_sunglasses)} | Night: {int(n_night)}")
-print(f"Train class weights → Drowsy: {w_drowsy:.2f} | Dist: {w_dist:.2f} | "
-      f"Glasses: {w_glasses:.2f} | Sunglasses: {w_sunglasses:.2f} | Night: {w_night:.2f}\n")
+            if hasattr(model, 'spiking_encoder') or hasattr(model, 'encoder'):
+                try:
+                    functional.reset_net(model)
+                except Exception:
+                    pass
 
-loss_fn   = MultiLabelFocalLoss(alpha=weights, gamma=2.0)
-optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-5)
+            if args.model == "single_stream":
+                out = model(x_face)
+            else:
+                out = model(x_face, x_body)
 
-# ── Training loop ─────────────────────────────────────────────────────────────
-best_val_acc = -1.0
+            pred_behavior = out[0] if isinstance(out, tuple) else out
+            y_smoothed = y * 0.9 + 0.05
+            loss = loss_fn(pred_behavior, y_smoothed)
 
-for epoch in range(EPOCHS):
-    # --- Train ---
-    model.train()
-    total_loss, correct, total_preds = 0.0, 0, 0
+            valid_mask = subj >= 0
+            if isinstance(out, tuple) and valid_mask.any():
+                pred_subject = out[1]
+                loss_subject = subject_loss_fn(pred_subject[valid_mask], subj[valid_mask])
+                loss = loss + loss_subject
+                subj_pred = pred_subject.argmax(dim=1)
+                subj_correct += (subj_pred[valid_mask] == subj[valid_mask]).sum().item()
 
-    for x, y in train_loader:
-        x_face, x_body = x
-        x_face, x_body = x_face.to(device), x_body.to(device)
-        y = y.to(device)
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
 
-        functional.reset_net(model)
+            probs = torch.sigmoid(pred_behavior)
+            predicted = (probs > 0.5).float()
+            correct += (predicted == y).all(dim=1).sum().item()
+            total_preds += y.size(0)
+            total_loss += loss.item()
 
-        pred = model(x_face, x_body)
-        
-        # Label smoothing to prevent overconfidence (combats overfitting)
-        y_smoothed = y * (1 - 0.1) + 0.05
-        loss = loss_fn(pred, y_smoothed)
+        scheduler.step()
 
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
+        train_acc = 100 * correct / max(total_preds, 1)
+        subj_acc = 100 * subj_correct / max(total_preds, 1) if isinstance(out, tuple) else 0
+        avg_loss = total_loss / len(train_loader)
+        cur_lr = scheduler.get_last_lr()[0]
 
-        probs = torch.sigmoid(pred)
-        predicted = (probs > 0.5).float()
-        correct     += (predicted == y).all(dim=1).sum().item()
-        total_preds += y.size(0)
-        total_loss  += loss.item()
+        val_acc = 0.0
+        if len(val_dataset) > 0:
+            model.eval()
+            val_correct, val_total = 0, 0
+            with torch.no_grad():
+                for x, y, _ in val_loader:
+                    x_face, x_body = x
+                    x_face, x_body = x_face.to(device), x_body.to(device)
+                    y = y.to(device)
+                    
+                    if hasattr(model, 'spiking_encoder') or hasattr(model, 'encoder'):
+                        try:
+                            functional.reset_net(model)
+                        except Exception:
+                            pass
+                        
+                    if args.model == "single_stream":
+                        out = model(x_face)
+                    else:
+                        out = model(x_face, x_body)
+                        
+                    logits = out[0] if isinstance(out, tuple) else out
+                    predicted = (torch.sigmoid(logits) > 0.5).float()
+                    val_correct += (predicted == y).all(dim=1).sum().item()
+                    val_total += y.size(0)
+            val_acc = 100 * val_correct / max(val_total, 1)
 
-    scheduler.step()
+        print(f"Epoch {epoch+1:02d}/{args.epochs} | Loss: {avg_loss:.4f} | "
+              f"Train: {train_acc:.0f}% | Subj: {subj_acc:.0f}% | Val: {val_acc:.0f}% | "
+              f"LR: {cur_lr:.2e} | Lam: {lam:.2f}")
 
-    train_acc = 100 * correct / max(total_preds, 1)
-    avg_loss  = total_loss / len(train_loader)
-    cur_lr    = scheduler.get_last_lr()[0]
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save(model.state_dict(), SAVE_PATH)
+            
+    print(f"\nDone. Best Val Exact Match: {best_val_acc:.0f}%")
+    print(f"Model saved to: {SAVE_PATH}")
+    
+    if args.model == "full":
+        print("\nRunning final evaluation on held-out test set...")
+        os.system("python3 -m inference.predict")
 
-    # --- Validate on held-out subjects ---
-    val_acc = 0.0
-    if len(val_dataset) > 0:
-        model.eval()
-        val_correct, val_total = 0, 0
-        with torch.no_grad():
-            for x, y in val_loader:
-                x_face, x_body = x
-                x_face, x_body = x_face.to(device), x_body.to(device)
-                y = y.to(device)
-                functional.reset_net(model)
-                logits = model(x_face, x_body)
-                predicted = (torch.sigmoid(logits) > 0.5).float()
-                val_correct += (predicted == y).all(dim=1).sum().item()
-                val_total   += y.size(0)
-        val_acc = 100 * val_correct / max(val_total, 1)
-
-    print(f"Epoch {epoch+1:02d}/{EPOCHS} | "
-          f"Loss: {avg_loss:.4f} | Train: {train_acc:.0f}% | Val: {val_acc:.0f}% | LR: {cur_lr:.2e}")
-
-    # Save best model based on VALIDATION accuracy (not training accuracy)
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
-        torch.save(model.state_dict(), SAVE_PATH)
-        print(f"  ✓ Best model saved (val={val_acc:.0f}%)")
-
-print(f"\nDone. Best Val Exact Match Accuracy: {best_val_acc:.0f}%")
-print(f"Held-out test subjects: {HELD_OUT_SUBJECTS}")
-print(f"Model saved to: {SAVE_PATH}")
-
-# ── Run final evaluation on held-out test set ─────────────────────────────────
-print("\nRunning final evaluation on held-out test set...")
-os.system("python3 -m inference.predict")
+if __name__ == "__main__":
+    main()

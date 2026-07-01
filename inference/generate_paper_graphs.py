@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.model_full import DriverMonitoringModel
 from dataset.video_dataset import VideoDataset
+from dataset.combined import build_combined_datasets
 from spikingjelly.activation_based import functional
 
 def main():
@@ -17,17 +18,29 @@ def main():
     print("  Generating Research Paper Graphs")
     print("="*65)
     
+    DATA_PATH        = os.path.expanduser("~/Desktop/dmd")
+    # Set to your Drive&Act root to include it in graphs, or None to skip.
+    DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")  # folders: inner_mirror, a_column_driver, activities_3s
+
     if not os.path.exists("model.pth"):
         print("ERROR: model.pth not found. Please train the model first.")
         sys.exit(1)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    model = DriverMonitoringModel(num_classes=5)
-    model.load_state_dict(torch.load("model.pth", map_location=device))
+    state_dict = torch.load("model.pth", map_location=device)
+    num_subjects = state_dict.get("subject_classifier.2.weight", torch.zeros(1, 1)).shape[0]
+    model = DriverMonitoringModel(num_subjects=max(num_subjects, 1))
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
 
-    dataset = VideoDataset(os.path.expanduser("~/Downloads/dmd 10"), augment=False)
+    # Load FULL combined dataset (no split) for graph generation
+    dataset, _, _ = build_combined_datasets(
+        dmd_path          = DATA_PATH,
+        driveandact_path  = DRIVEANDACT_PATH,
+        held_out_subjects = set(),  # no holdout — use all data
+        augment_train     = False,
+    )
     
     if len(dataset) == 0:
         print("No videos found in dataset. Cannot generate graphs.")
@@ -39,6 +52,7 @@ def main():
     all_probs = []
 
     for i in range(len(dataset)):
+        # dataset[i] is a 3-tuple: (x, label, subject_idx)
         x_face, x_body = dataset[i][0]
         y = dataset[i][1]
         
@@ -47,7 +61,9 @@ def main():
 
         with torch.no_grad():
             functional.reset_net(model)
-            logits = model(x_face, x_body)
+            out = model(x_face, x_body)
+            # DriverMonitoringModel returns (behavior_logits, subject_logits)
+            logits = out[0] if isinstance(out, tuple) else out
             probs = torch.sigmoid(logits)[0]
             
         all_targets.append(y.numpy())

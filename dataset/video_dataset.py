@@ -174,9 +174,12 @@ class VideoDataset(Dataset):
                                (e.g. gB_10_s5_... → subject 's5').
         """
         self.samples = []    # list of (video_path, label)
-        self.augment  = augment
+        self.augment = augment
         self.split = split
         self.held_out_subjects = held_out_subjects or set()
+        self.samples = []
+        self.subject_to_idx = {}
+        self.num_subjects = 0
 
         # Build list of all roots to scan
         search_roots = [folder_path]
@@ -245,7 +248,15 @@ class VideoDataset(Dataset):
             
             label = get_label_from_annotation(drowsy_path, dist_path, max(total_frames, 1), prefix)
 
-            self.samples.append((face_path, body_path, label))
+            if subject_id is not None and self.split == 'train':
+                if subject_id not in self.subject_to_idx:
+                    self.subject_to_idx[subject_id] = len(self.subject_to_idx)
+            
+            subject_idx = self.subject_to_idx.get(subject_id, -1)
+
+            self.samples.append((face_path, body_path, label, subject_idx))
+            
+        self.num_subjects = len(self.subject_to_idx)
 
         labels = torch.stack([s[2] for s in self.samples])
         num_normal = ((labels[:, 0] == 0) & (labels[:, 1] == 0)).sum().item()
@@ -264,7 +275,7 @@ class VideoDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        face_path, body_path, label = self.samples[idx]
+        face_path, body_path, label, subject_idx = self.samples[idx]
 
         def process_video(video_path):
             video_name = os.path.basename(video_path) + ".npy"
@@ -307,4 +318,4 @@ class VideoDataset(Dataset):
         voxels_face = process_video(face_path)
         voxels_body = process_video(body_path)
 
-        return (voxels_face, voxels_body), label
+        return (voxels_face, voxels_body), label, torch.tensor(subject_idx, dtype=torch.long)

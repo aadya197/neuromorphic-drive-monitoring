@@ -24,10 +24,13 @@ from models.model_snn_no_attention import SNNBiGRUNoAttention
 from models.model_snn_only import SNNOnlyNoGRU
 from models.baseline_cnn_gru import BaselineDriverMonitoringModel
 from dataset.video_dataset import VideoDataset
+from dataset.combined import build_combined_datasets
 from spikingjelly.activation_based import functional
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DATA_PATH         = os.path.expanduser("~/Desktop/dmd")
+# Set to your Drive&Act root to include it in evaluation, or None to skip.
+DRIVEANDACT_PATH  = os.path.expanduser("~/Downloads")  # folders: inner_mirror, a_column_driver, activities_3s
 HELD_OUT_SUBJECTS = {"s1", "s4"}
 CLASS_NAMES       = ["Drowsy", "Distracted", "Glasses", "Sunglasses", "Night"]
 THRESHOLD         = 0.5
@@ -41,6 +44,7 @@ def evaluate_model(model, dataset, is_snn=True, single_stream=False):
     all_targets, all_probs = [], []
 
     for i in range(len(dataset)):
+        # dataset[i] is always a 3-tuple: (x, label, subject_idx)
         x_face, x_body = dataset[i][0]
         y = dataset[i][1]
 
@@ -51,9 +55,11 @@ def evaluate_model(model, dataset, is_snn=True, single_stream=False):
             if is_snn:
                 functional.reset_net(model)
             if single_stream:
-                logits = model(x_face)        # body ignored
+                out = model(x_face)            # body ignored
             else:
-                logits = model(x_face, x_body)
+                out = model(x_face, x_body)
+            # Full model returns (behavior_logits, subject_logits); others return logits directly
+            logits = out[0] if isinstance(out, tuple) else out
             probs = torch.sigmoid(logits)[0].cpu().numpy()
 
         all_targets.append(y.numpy())
@@ -151,13 +157,16 @@ def load_model(model_class, path, label, **kwargs):
 
 
 def main():
-    # ── Load test dataset ─────────────────────────────────────────────────────
-    test_dataset = VideoDataset(DATA_PATH, augment=False,
-                                split='test', held_out_subjects=HELD_OUT_SUBJECTS)
+    # ── Load test dataset (DMD held-out + Drive&Act val if available) ────────────
+    _, test_dataset, _ = build_combined_datasets(
+        dmd_path          = DATA_PATH,
+        driveandact_path  = DRIVEANDACT_PATH,
+        held_out_subjects = HELD_OUT_SUBJECTS,
+    )
     if len(test_dataset) == 0:
         print(f"ERROR: No test videos found for subjects {HELD_OUT_SUBJECTS}.")
         sys.exit(1)
-    print(f"\nTest set: {len(test_dataset)} videos | Subjects: {HELD_OUT_SUBJECTS}\n")
+    print(f"\nTest set: {len(test_dataset)} samples | DMD subjects: {HELD_OUT_SUBJECTS}\n")
 
     # ── Load all 5 model variants ─────────────────────────────────────────────
     # Q1: Backbone ablation — does SNN beat CNN?

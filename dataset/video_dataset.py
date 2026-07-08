@@ -128,6 +128,12 @@ def augment_voxels(voxels):
         x = random.randint(0, w - cut_w)
         voxels[:, :, y:y+cut_h, x:x+cut_w] = 0.0
 
+    # Random Temporal Masking
+    if random.random() > 0.3:
+        t, c, h, w = voxels.shape
+        mask_t = random.randint(0, t - 1)
+        voxels[mask_t, :, :, :] = 0.0
+
     # ── Night augmentations (30% probability each) ────────────────────────────
 
     # 1. Global darkness: scale down all voxel magnitudes to mimic low-light

@@ -35,16 +35,16 @@ class DriverMonitoringModel(nn.Module):
       Classifier head                        → (batch, num_classes)
     """
 
-    def __init__(self, num_classes=5, num_subjects=1, gru_hidden=64, dropout=0.3):
+    def __init__(self, num_classes=5, num_subjects=1, gru_hidden=128, dropout=0.3):
         super().__init__()
 
         self.face_backbone = SNNBackbone(dropout=0.2)
         self.body_backbone = SNNBackbone(dropout=0.2)
-        self.input_norm = nn.LayerNorm(128)
+        self.input_norm = nn.LayerNorm(256)
 
-        # Bidirectional GRU: 128 context dims (since 64+64=128)
+        # Bidirectional GRU: 256 context dims (since 128+128=256)
         self.gru = nn.GRU(
-            input_size=128,
+            input_size=256,
             hidden_size=gru_hidden,
             num_layers=1,
             batch_first=True,
@@ -82,13 +82,13 @@ class DriverMonitoringModel(nn.Module):
         body_features = self.body_backbone(x_body)               # (batch*time, 64)
 
         # Concatenate features
-        features = torch.cat([face_features, body_features], dim=1) # (batch*time, 128)
+        features = torch.cat([face_features, body_features], dim=1) # (batch*time, 256)
 
-        # Restore temporal axis: (batch, time, 128)
+        # Restore temporal axis: (batch, time, 256)
         features = features.view(batch, time, -1)
         features = self.input_norm(features)
 
-        # Bidirectional GRU temporal modelling: (batch, time, 128)
+        # Bidirectional GRU temporal modelling: (batch, time, 256)
         gru_out, _ = self.gru(features)
 
         # Attention-weighted pooling: (batch, 128)

@@ -28,9 +28,10 @@ from dataset.combined import build_combined_datasets
 from spikingjelly.activation_based import functional
 
 # ── Config ────────────────────────────────────────────────────────────────────
-DATA_PATH         = os.path.expanduser("~/Desktop/dmd")
+DATA_PATH         = os.path.expanduser("~/Downloads")
 # Set to your Drive&Act root to include it in evaluation, or None to skip.
 DRIVEANDACT_PATH  = os.path.expanduser("~/Downloads")  # folders: inner_mirror, a_column_driver, activities_3s
+MDAD_PATH         = os.path.expanduser("~/Downloads/neuromorphic-drive-monitoring/data/3mdad")
 HELD_OUT_SUBJECTS = {"s1", "s4"}
 CLASS_NAMES       = ["Drowsy", "Distracted", "Glasses", "Sunglasses", "Night"]
 THRESHOLD         = 0.5
@@ -161,6 +162,7 @@ def main():
     _, test_dataset, _ = build_combined_datasets(
         dmd_path          = DATA_PATH,
         driveandact_path  = DRIVEANDACT_PATH,
+        mdad_path         = MDAD_PATH,
         held_out_subjects = HELD_OUT_SUBJECTS,
     )
     if len(test_dataset) == 0:

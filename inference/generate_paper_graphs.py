@@ -18,9 +18,10 @@ def main():
     print("  Generating Research Paper Graphs")
     print("="*65)
     
-    DATA_PATH        = os.path.expanduser("~/Desktop/dmd")
+    DATA_PATH        = os.path.expanduser("~/Downloads")
     # Set to your Drive&Act root to include it in graphs, or None to skip.
     DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")  # folders: inner_mirror, a_column_driver, activities_3s
+    MDAD_PATH        = os.path.expanduser("~/Downloads/neuromorphic-drive-monitoring/data/3mdad")
 
     if not os.path.exists("model.pth"):
         print("ERROR: model.pth not found. Please train the model first.")
@@ -38,6 +39,7 @@ def main():
     dataset, _, _ = build_combined_datasets(
         dmd_path          = DATA_PATH,
         driveandact_path  = DRIVEANDACT_PATH,
+        mdad_path         = MDAD_PATH,
         held_out_subjects = set(),  # no holdout — use all data
         augment_train     = False,
     )

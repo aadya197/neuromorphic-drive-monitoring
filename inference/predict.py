@@ -16,9 +16,10 @@ CLASS_NAMES = ["Drowsy", "Distracted", "Glasses", "Sunglasses", "Night"]
 HELD_OUT_SUBJECTS = {"s1", "s4"}
 
 # ── Dataset config ────────────────────────────────────────────────────────────
-DATA_PATH        = os.path.expanduser("~/Desktop/dmd")
+DATA_PATH        = os.path.expanduser("~/Downloads")
 # Set to your Drive&Act root to include it in evaluation, or None to skip.
 DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")  # folders: inner_mirror, a_column_driver, activities_3s
+MDAD_PATH        = os.path.expanduser("~/Downloads/neuromorphic-drive-monitoring/data/3mdad")
 
 # ── Load model ────────────────────────────────────────────────────────────────
 if not os.path.exists("model.pth"):
@@ -36,6 +37,7 @@ model.eval()
 _, dataset, _ = build_combined_datasets(
     dmd_path          = DATA_PATH,
     driveandact_path  = DRIVEANDACT_PATH,
+    mdad_path         = MDAD_PATH,
     held_out_subjects = HELD_OUT_SUBJECTS,
 )
 

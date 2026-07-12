@@ -28,9 +28,10 @@ from dataset.video_dataset import VideoDataset
 from dataset.combined import build_combined_datasets
 from spikingjelly.activation_based import functional
 
-DATA_PATH        = os.path.expanduser("~/Desktop/dmd")
+DATA_PATH        = os.path.expanduser("~/Downloads")
 # Set to your Drive&Act root to include it in the contextual breakdown, or None to skip.
 DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")  # folders: inner_mirror, a_column_driver, activities_3s
+MDAD_PATH        = os.path.expanduser("~/Downloads/neuromorphic-drive-monitoring/data/3mdad")
 THRESHOLD = 0.5
 
 # Label indices
@@ -115,6 +116,7 @@ def main():
     dataset, _, _ = build_combined_datasets(
         dmd_path          = DATA_PATH,
         driveandact_path  = DRIVEANDACT_PATH,
+        mdad_path         = MDAD_PATH,
         held_out_subjects = set(),  # no holdout — use all data for condition breakdown
         augment_train     = False,
     )

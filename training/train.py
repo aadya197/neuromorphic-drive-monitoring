@@ -48,7 +48,7 @@ def main():
     
     # Config paths
     # DMD dataset root (may be empty/absent — graceful degradation)
-    DATA_PATH       = os.path.expanduser("~/Desktop/dmd")
+    DATA_PATH       = os.path.expanduser("~/Downloads")
     DRIVEANDACT_PATH = os.path.expanduser("~/Downloads")
     # 3MDAD dataset root (inside the project)
     MDAD_PATH       = os.path.join(
